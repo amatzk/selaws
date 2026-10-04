@@ -6,13 +6,17 @@ on:
       - "v*"
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
-    environment: npm
+    outputs:
+      package_sha256: ${{ steps.package.outputs.sha256 }}
 
     steps:
       - name: Checkout
@@ -33,15 +37,73 @@ jobs:
           fi
 
       - name: Pack and verify package
+        id: package
         run: |
           mkdir -p .pack
           pnpm pack --out .pack/selaws.tgz
           node scripts/verify-package.mjs
+          echo "sha256=$(sha256sum .pack/selaws.tgz | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload verified package
+        uses: actions/upload-artifact@v7
+        with:
+          name: selaws-package
+          path: .pack/selaws.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          require-lockfile: true
+
+      - name: Download verified package
+        uses: actions/download-artifact@v8
+        with:
+          name: selaws-package
+          path: .pack
+
+      - name: Verify package identity
+        env:
+          EXPECTED_SHA256: ${{ needs.verify.outputs.package_sha256 }}
+        run: echo "${EXPECTED_SHA256}  .pack/selaws.tgz" | sha256sum -c -
 
       - name: Publish to npm
-        run: pnpm dlx npm@11.21.0 publish .pack/selaws.tgz --access public
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          local_integrity="$(node -e 'const fs=require("node:fs"); const crypto=require("node:crypto"); const data=fs.readFileSync(".pack/selaws.tgz"); process.stdout.write("sha512-"+crypto.createHash("sha512").update(data).digest("base64"));')"
+          remote_integrity="$(pnpm dlx npm@11.21.0 view "selaws@${package_version}" dist.integrity 2>/dev/null || true)"
+
+          if [[ -n "${remote_integrity}" ]]; then
+            if [[ "${remote_integrity}" != "${local_integrity}" ]]; then
+              echo "::error::selaws@${package_version} already exists with different package bytes."
+              exit 1
+            fi
+            echo "selaws@${package_version} is already published with the verified package bytes."
+          else
+            pnpm dlx npm@11.21.0 publish .pack/selaws.tgz --access public
+          fi
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "GitHub Release ${GITHUB_REF_NAME} already exists."
+          else
+            gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes
+          fi
