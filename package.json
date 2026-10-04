@@ -1,0 +1,92 @@
+{
+  "name": "selaws",
+  "version": "0.1.0",
+  "description": "Independent semantic primitives for TypeScript with explicit laws.",
+  "license": "MIT",
+  "keywords": [
+    "typescript",
+    "semantic",
+    "result",
+    "option",
+    "validation",
+    "nominal-typing",
+    "refinement-types",
+    "domain-modeling"
+  ],
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amatzk/selaws.git"
+  },
+  "homepage": "https://github.com/amatzk/selaws",
+  "bugs": {
+    "url": "https://github.com/amatzk/selaws/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./identity": {
+      "types": "./dist/identity.d.ts",
+      "import": "./dist/identity.js",
+      "default": "./dist/identity.js"
+    },
+    "./evidence": {
+      "types": "./dist/evidence.d.ts",
+      "import": "./dist/evidence.js",
+      "default": "./dist/evidence.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js",
+      "default": "./dist/protocol.js"
+    },
+    "./variant": {
+      "types": "./dist/variant.d.ts",
+      "import": "./dist/variant.js",
+      "default": "./dist/variant.js"
+    },
+    "./result": {
+      "types": "./dist/result/index.d.ts",
+      "import": "./dist/result/index.js",
+      "default": "./dist/result/index.js"
+    },
+    "./option": {
+      "types": "./dist/option.d.ts",
+      "import": "./dist/option.js",
+      "default": "./dist/option.js"
+    },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "import": "./dist/validation.js",
+      "default": "./dist/validation.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "fix": "biome check --write .",
+    "test:types": "tsc -p tsconfig.test.json",
+    "test:runtime": "node --test test/*.test.mjs",
+    "test": "pnpm run build && pnpm run test:types && pnpm run test:runtime",
+    "check": "biome ci . && pnpm run test",
+    "prepack": "pnpm run check"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "pnpm@12.8.1"
+}

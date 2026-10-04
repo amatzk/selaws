@@ -1,0 +1,367 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  all,
+  andThen,
+  attempt,
+  attemptAsync,
+  err,
+  flatten,
+  inspect,
+  inspectError,
+  map,
+  mapError,
+  match,
+  ok,
+  orElse,
+  orThrow,
+  Result,
+  unwrapOr,
+  unwrapOrElse,
+  wrap,
+  wrapAsync,
+} from "../dist/result/index.js";
+
+test("constructors produce structural, unfrozen data", () => {
+  const success = ok(1);
+  const failure = err("bad");
+
+  assert.deepEqual(success, { ok: true, value: 1 });
+  assert.deepEqual(failure, { error: "bad", ok: false });
+  assert.equal(Object.isFrozen(success), false);
+  assert.equal(Object.isFrozen(failure), false);
+  assert.strictEqual(Result.ok, ok);
+  assert.strictEqual(Result.err, err);
+});
+
+test("core algebra touches only the selected arm", () => {
+  const success = ok(2);
+  const failure = err("bad");
+
+  assert.deepEqual(
+    map(success, (value) => value * 3),
+    ok(6),
+  );
+  assert.strictEqual(
+    map(failure, () => 0),
+    failure,
+  );
+
+  assert.strictEqual(
+    mapError(success, () => "changed"),
+    success,
+  );
+  assert.deepEqual(
+    mapError(failure, (error) => error.length),
+    err(3),
+  );
+
+  assert.deepEqual(
+    andThen(success, (value) => ok(String(value))),
+    ok("2"),
+  );
+  assert.strictEqual(
+    andThen(failure, () => ok("unused")),
+    failure,
+  );
+
+  assert.strictEqual(
+    orElse(success, () => ok(0)),
+    success,
+  );
+  assert.deepEqual(
+    orElse(failure, () => ok(9)),
+    ok(9),
+  );
+
+  assert.equal(
+    match(success, {
+      ok: (value) => value + 1,
+      err: () => 0,
+    }),
+    3,
+  );
+  assert.equal(
+    match(failure, {
+      ok: () => 0,
+      err: (error) => error.length,
+    }),
+    3,
+  );
+
+  assert.strictEqual(
+    inspect(success, () => undefined),
+    success,
+  );
+  assert.strictEqual(
+    inspect(failure, () => assert.fail()),
+    failure,
+  );
+  assert.strictEqual(
+    inspectError(success, () => assert.fail()),
+    success,
+  );
+  assert.strictEqual(
+    inspectError(failure, () => undefined),
+    failure,
+  );
+
+  assert.equal(unwrapOr(success, 7), 2);
+  assert.equal(unwrapOr(failure, 7), 7);
+  assert.equal(
+    unwrapOrElse(success, () => 7),
+    2,
+  );
+  assert.equal(
+    unwrapOrElse(failure, (error) => error.length),
+    3,
+  );
+});
+
+test("Result observation rejects Promise-like runtime completion", () => {
+  assert.throws(
+    () => inspect(ok(1), () => Promise.resolve()),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "Result.inspect() expects a synchronous observer.",
+  );
+
+  assert.throws(
+    () => inspectError(err("bad"), () => Promise.resolve()),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "Result.inspectError() expects a synchronous observer.",
+  );
+
+  const proxyThenable = new Proxy(
+    {},
+    {
+      get(target, key, receiver) {
+        return key === "then" ? () => undefined : Reflect.get(target, key, receiver);
+      },
+    },
+  );
+
+  assert.throws(
+    () => inspect(ok(1), () => proxyThenable),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "Result.inspect() expects a synchronous observer.",
+  );
+});
+
+test("core combinators never capture thrown exceptions", () => {
+  const marker = new Error("marker");
+
+  assert.throws(
+    () =>
+      map(ok(1), () => {
+        throw marker;
+      }),
+    (caught) => caught === marker,
+  );
+
+  assert.throws(
+    () =>
+      mapError(err("bad"), () => {
+        throw marker;
+      }),
+    (caught) => caught === marker,
+  );
+});
+
+test("flatten is explicit and all is ordered fail-fast", () => {
+  assert.deepEqual(flatten(ok(ok(1))), ok(1));
+  assert.deepEqual(flatten(ok(err("inner"))), err("inner"));
+  assert.deepEqual(flatten(err("outer")), err("outer"));
+
+  const firstFailure = err({ kind: "first" });
+  const secondFailure = err({ kind: "second" });
+
+  assert.strictEqual(all([ok(1), firstFailure, secondFailure]), firstFailure);
+  assert.deepEqual(all([ok(1), ok("two")]), ok([1, "two"]));
+  assert.deepEqual(all([]), ok([]));
+
+  const hostileResults = [ok(1), firstFailure];
+  hostileResults[Symbol.iterator] = function* hostileIterator() {};
+  assert.strictEqual(all(hostileResults), firstFailure);
+});
+
+test("attempt captures only its explicit abrupt boundary", () => {
+  const thrown = new Error("boom");
+  const captured = attempt(
+    () => {
+      throw thrown;
+    },
+    (caught) => ({ caught }),
+  );
+
+  assert.equal(captured.ok, false);
+  assert.strictEqual(captured.error.caught, thrown);
+
+  const nested = attempt(
+    () => err("domain"),
+    () => "thrown",
+  );
+  assert.deepEqual(nested, ok(err("domain")));
+
+  const mapperFailure = new Error("mapper");
+  assert.throws(
+    () =>
+      attempt(
+        () => {
+          throw thrown;
+        },
+        () => {
+          throw mapperFailure;
+        },
+      ),
+    (caught) => caught === mapperFailure,
+  );
+
+  let mapperCalls = 0;
+  assert.throws(
+    () =>
+      attempt(
+        () => Promise.resolve(1),
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "attempt() expects a synchronous thunk.",
+  );
+  assert.equal(mapperCalls, 0);
+
+  const callableThen = {};
+  Object.defineProperty(callableThen, ["th", "en"].join(""), {
+    configurable: true,
+    value: () => 1,
+  });
+  assert.throws(
+    () =>
+      attempt(
+        () => callableThen,
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "attempt() expects a synchronous thunk.",
+  );
+  assert.equal(mapperCalls, 0);
+
+  const proxyThenable = new Proxy(
+    {},
+    {
+      get(target, key, receiver) {
+        return key === "then" ? () => undefined : Reflect.get(target, key, receiver);
+      },
+    },
+  );
+  assert.throws(
+    () =>
+      attempt(
+        () => proxyThenable,
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "attempt() expects a synchronous thunk.",
+  );
+  assert.equal(mapperCalls, 0);
+});
+
+test("attemptAsync captures invocation throws and Promise rejection", async () => {
+  const syncThrown = new Error("sync");
+  const rejected = new Error("rejected");
+
+  assert.deepEqual(
+    await attemptAsync(
+      () => {
+        throw syncThrown;
+      },
+      (caught) => (caught === syncThrown ? "sync" : "other"),
+    ),
+    err("sync"),
+  );
+
+  assert.deepEqual(
+    await attemptAsync(
+      () => Promise.reject(rejected),
+      (caught) => (caught === rejected ? "rejected" : "other"),
+    ),
+    err("rejected"),
+  );
+
+  assert.deepEqual(
+    await attemptAsync(
+      async () => err("domain"),
+      () => "thrown",
+    ),
+    ok(err("domain")),
+  );
+});
+
+test("wrap and wrapAsync preserve arguments and this", async () => {
+  const safe = wrap(function read(delta) {
+    return this.base + delta;
+  }, String);
+
+  const safeAsync = wrapAsync(async function read(delta) {
+    return this.base + delta;
+  }, String);
+
+  assert.deepEqual(safe.call({ base: 2 }, 3), ok(5));
+  assert.deepEqual(await safeAsync.call({ base: 4 }, 5), ok(9));
+
+  function shadowedApply(delta) {
+    return this.base + delta;
+  }
+  Object.defineProperty(shadowedApply, "apply", {
+    configurable: true,
+    value() {
+      return -1;
+    },
+  });
+
+  async function shadowedAsyncApply(delta) {
+    return this.base + delta;
+  }
+  Object.defineProperty(shadowedAsyncApply, "apply", {
+    configurable: true,
+    value() {
+      return Promise.resolve(-1);
+    },
+  });
+
+  assert.deepEqual(wrap(shadowedApply, String).call({ base: 2 }, 3), ok(5));
+  assert.deepEqual(
+    await wrapAsync(shadowedAsyncApply, String).call({ base: 4 }, 5),
+    ok(9),
+  );
+
+  const safeJsonParse = wrap(JSON.parse, String);
+  assert.deepEqual(safeJsonParse('{"value":1}'), ok({ value: 1 }));
+});
+
+test("orThrow is the explicit recoverable-to-abrupt adapter", () => {
+  assert.equal(
+    orThrow(ok(3), () => new Error("unused")),
+    3,
+  );
+
+  const marker = new Error("mapped");
+  assert.throws(
+    () => orThrow(err("bad"), () => marker),
+    (caught) => caught === marker,
+  );
+});
