@@ -437,14 +437,27 @@ type _VariantNamespace = Expect<Equal<PackageMessageAlias, PackageMessage>>;
 type _RootVariantNamespace = Expect<Equal<RootPackageMessage, PackageMessage>>;
 type _RootVariantAlias = Expect<Equal<RootPackageMessageAlias, PackageMessage>>;
 
+type PackageFakeFamily = {
+  readonly make: {
+    readonly forged: () => Readonly<{ tag: "forged"; value: 1 }>;
+  };
+};
+type _PackageFakeFamilyRejected = Expect<
+  IsNever<Variant.Value<PackageFakeFamily>>
+>;
+
 const PackageMessageCopy = VariantCopyFacade.shared("example.variant/PackageMessage@1", [
   ["none", variantUnitCopy],
   ["text", variantPayloadCopy<string>()],
 ]);
 type PackageMessageCopy = VariantCopyFacade.Value<typeof PackageMessageCopy>;
 type PackageMessageCopyAlias = VariantCopy<typeof PackageMessageCopy>;
+type PackageMessageCopyReadByPrimary = Variant.Value<typeof PackageMessageCopy>;
 type _CopyVariantNamespace = Expect<
   Equal<PackageMessageCopyAlias, PackageMessageCopy>
+>;
+type _CopyVariantProjection = Expect<
+  Equal<PackageMessageCopyReadByPrimary, PackageMessageCopy>
 >;
 declare const packageMessage: PackageMessage;
 declare const packageMessageCopy: PackageMessageCopy;
@@ -480,6 +493,23 @@ const reorderedCopyBackward: PackageMessage = packageMessageCopyReordered;
 void exactPackageMatch;
 void reorderedCopyForward;
 void reorderedCopyBackward;
+
+const PackagePayloadNarrow = Variant.shared("example.variant/PayloadVariance@1", [
+  ["value", variantPayload<"a">()],
+]);
+const PackagePayloadWide = Variant.shared("example.variant/PayloadVariance@1", [
+  ["value", variantPayload<string>()],
+]);
+type PackagePayloadNarrow = Variant.Value<typeof PackagePayloadNarrow>;
+type PackagePayloadWide = Variant.Value<typeof PackagePayloadWide>;
+declare const packagePayloadNarrow: PackagePayloadNarrow;
+declare const packagePayloadWide: PackagePayloadWide;
+// @ts-expect-error exact shared family signatures are invariant in payload type
+const packageNarrowAsWide: PackagePayloadWide = packagePayloadNarrow;
+// @ts-expect-error exact shared family signatures are invariant in payload type
+const packageWideAsNarrow: PackagePayloadNarrow = packagePayloadWide;
+void packageNarrowAsWide;
+void packageWideAsNarrow;
 
 const packageFullCases = [
   ["a", variantUnit],
@@ -643,6 +673,10 @@ const StrictVariantB = VariantCopyFacade.define(sharedVariantKey, [
 ]);
 type StrictVariantA = VariantValue<typeof StrictVariantA>;
 type StrictVariantB = VariantCopy<typeof StrictVariantB>;
+type StrictVariantBReadByPrimary = Variant.Value<typeof StrictVariantB>;
+type _CopyLocalVariantProjection = Expect<
+  Equal<StrictVariantBReadByPrimary, StrictVariantB>
+>;
 declare const strictVariantA: StrictVariantA;
 declare const strictVariantB: StrictVariantB;
 const strictVariantForward: StrictVariantB = strictVariantA;
@@ -1005,6 +1039,13 @@ assert.strictEqual(root.Protocol, Protocol);
 assert.strictEqual(root.Variant, Variant);
 assert.equal(Object.hasOwn(Variant, "Case"), false);
 assert.strictEqual(Variant.unit, VariantCopy.unit);
+const projectionSurfaceFamily = Variant.define(Symbol("ProjectionSurface"), [
+  ["ready", Variant.unit],
+]);
+assert.equal(
+  Object.hasOwn(projectionSurfaceFamily, "~selaws.variant.family"),
+  false,
+);
 assert.strictEqual(Variant.payload(), VariantCopy.payload());
 assert.strictEqual(root.Result, Result);
 assert.strictEqual(root.Validation, Validation);

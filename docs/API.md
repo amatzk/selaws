@@ -334,6 +334,10 @@ type Message =
   Variant.Value<typeof Message>;
 ```
 
+`Variant.Value<Family>` projects only from a Selaws Variant family declaration
+type; a lookalike object with a `make` property is not enough. The projection
+witness is type-only and does not add runtime family properties.
+
 `Variant.define` accepts one finite readonly tuple of `[caseName, caseSpec]`
 entries, snapshots that tuple, and returns an immutable family with:
 

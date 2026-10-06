@@ -12,6 +12,9 @@ test("root and focused facades share the Variant owner", () => {
   assert.strictEqual(Variant.unit, unit);
   assert.deepEqual(Object.keys(unit), []);
   assert.deepEqual(Object.keys(payload()), []);
+
+  const Family = define(Symbol("ProjectionSurface"), [["ready", unit]]);
+  assert.equal(Object.hasOwn(Family, "~selaws.variant.family"), false);
 });
 
 test("local and shared family APIs validate token kind", () => {

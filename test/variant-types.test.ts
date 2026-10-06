@@ -36,6 +36,14 @@ type _FocusedVariantType = Expect<Equal<FocusedMessage, Message>>;
 type _RootVariantType = Expect<Equal<RootMessage, Message>>;
 type _RootAliasVariantType = Expect<Equal<RootAliasMessage, Message>>;
 
+type FakeFamily = {
+  readonly make: {
+    readonly forged: () => Readonly<{ tag: "forged"; value: 1 }>;
+  };
+};
+type _FakeFamilyRejectedByNamespace = Expect<IsNever<VariantFacade.Value<FakeFamily>>>;
+type _FakeFamilyRejectedByAlias = Expect<IsNever<Variant<FakeFamily>>>;
+
 type WriteCase = VariantFacade.Case<Message, "write">;
 type RootWriteCase = RootVariant.Case<Message, "write">;
 type _WriteCaseTag = Expect<Equal<WriteCase["tag"], "write">>;
@@ -160,6 +168,24 @@ const extendedFromOld: SharedExtended = sharedValueA;
 const oldFromExtended: SharedA = {} as SharedExtended;
 void extendedFromOld;
 void oldFromExtended;
+
+const sharedNarrow = shared("example.variant/PayloadVariance@1", [
+  ["value", payload<"a">()],
+]);
+const sharedWide = shared("example.variant/PayloadVariance@1", [
+  ["value", payload<string>()],
+]);
+type SharedNarrow = Variant<typeof sharedNarrow>;
+type SharedWide = Variant<typeof sharedWide>;
+declare const sharedNarrowValue: SharedNarrow;
+declare const sharedWideValue: SharedWide;
+
+// @ts-expect-error exact shared family signatures are invariant in payload type
+const narrowAsWide: SharedWide = sharedNarrowValue;
+// @ts-expect-error exact shared family signatures are invariant in payload type
+const wideAsNarrow: SharedNarrow = sharedWideValue;
+void narrowAsWide;
+void wideAsNarrow;
 
 const sharedToken: unique symbol = Symbol("Shared");
 const StrictA = define(sharedToken, [["left", payload<string>()]]);

@@ -81,12 +81,20 @@ Shared family values use the structural phantom key:
 ```
 
 The phantom marker also includes the Variant category, exact closed case-name
-universe, and case signatures. Two shared declarations with the same contract
-but different family signatures are not compatible.
+universe, and case signatures. Case signatures are invariant in their payload
+types, so neither a narrower nor a wider payload family substitutes for the
+other. Two shared declarations with the same contract but different family
+signatures are not compatible.
 
 Choosing the same shared contract is an interoperability assertion, not a
 display-name coincidence. See
 [Declaration compatibility](./declaration-compatibility.md).
+
+`Variant.Value<Family>` and the equivalent top-level `Variant<Family>`
+project only from Selaws Variant family declaration types. A lookalike object
+that merely exposes a `make` property does not acquire Variant family
+authority. The declaration witness used for that projection is type-only and
+does not add a runtime property to the family object.
 
 ## 3. Case formation
 

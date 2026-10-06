@@ -100,6 +100,7 @@ type VariantMarker<Specs extends CaseSpecs> = Readonly<{
   "~selaws.variant": true;
   cases: FamilySignature<Specs>;
   names: (name: keyof Specs) => keyof Specs;
+  signature: (signature: FamilySignature<Specs>) => FamilySignature<Specs>;
 }>;
 
 type FamilyBrand<
@@ -168,7 +169,27 @@ type MatchResult<
 type NoExtraHandlerKeys<Handlers, Name extends PropertyKey> =
   Exclude<keyof Handlers, Name> extends never ? unknown : never;
 
+type VariantFamilyDeclaration<
+  TokenValue extends Token,
+  Specs extends CaseSpecs,
+> = Readonly<{
+  token: TokenValue;
+  specs: Specs;
+}>;
+
+type VariantFamilyDeclarationProperty = "~selaws.variant.family";
+
+type VariantFamilyDeclarationOf<Family> =
+  VariantFamilyDeclarationProperty extends keyof Family
+    ? Family extends {
+        readonly "~selaws.variant.family"?: infer Declaration;
+      }
+      ? Exclude<Declaration, undefined>
+      : never
+    : never;
+
 type VariantFamily<TokenValue extends Token, Specs extends CaseSpecs> = Readonly<{
+  readonly "~selaws.variant.family"?: VariantFamilyDeclaration<TokenValue, Specs>;
   make: Constructors<TokenValue, Specs>;
   /** Eliminates this family under the shared Match law. */
   match<const Handlers extends Matchers<Specs>>(
@@ -177,18 +198,13 @@ type VariantFamily<TokenValue extends Token, Specs extends CaseSpecs> = Readonly
   ): MatchResult<Specs, Handlers>;
 }>;
 
-type ConstructorValue<Constructor> = Constructor extends (
-  ...args: never[]
-) => infer Value
-  ? Value
-  : never;
-
-/** Extracts the closed value union produced by one Variant family. */
-export type Variant<Family> = Family extends {
-  readonly make: infer Make extends object;
-}
-  ? ConstructorValue<Make[keyof Make]>
-  : never;
+/** Extracts the closed value union produced by one Variant family declaration. */
+export type Variant<Family> =
+  VariantFamilyDeclarationOf<Family> extends infer Declaration
+    ? Declaration extends VariantFamilyDeclaration<infer TokenValue, infer Specs>
+      ? VariantValue<TokenValue, Specs>
+      : never
+    : never;
 
 const unitSpec = Symbol.for("selaws.variant.unit") as UnitSpec;
 const payloadSpec = Symbol.for("selaws.variant.payload") as PayloadSpec<unknown>;
