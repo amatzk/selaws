@@ -56,7 +56,8 @@ Validation.match(Validation.valid(1), {
   valid: (value) => value + 1,
 });
 
-const Message = Variant.define("MatchTypes", [
+const matchTypesKey: unique symbol = Symbol("MatchTypes");
+const Message = Variant.define(matchTypesKey, [
   ["quit", Variant.unit],
   ["write", Variant.payload<string>()],
 ]);
@@ -78,7 +79,8 @@ type _VariantExtraHandlerDoesNotPolluteResult = Assert<
   Equal<typeof variantWithExtraHandler, number>
 >;
 
-const EmptyVariant = Variant.define("EmptyMatchTypes", []);
+const emptyMatchTypesKey: unique symbol = Symbol("EmptyMatchTypes");
+const EmptyVariant = Variant.define(emptyMatchTypesKey, []);
 type EmptyVariantValue = Variant.Value<typeof EmptyVariant>;
 declare const emptyVariantValue: EmptyVariantValue;
 const emptyVariantMatched = EmptyVariant.match(emptyVariantValue, {});

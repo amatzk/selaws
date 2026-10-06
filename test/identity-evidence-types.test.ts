@@ -7,10 +7,16 @@ import {
 } from "../src/identity.js";
 
 type Extends<Left, Right> = Left extends Right ? true : false;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2
+      ? true
+      : false
+    : false;
 type IsNever<Value> = [Value] extends [never] ? true : false;
 type Expect<Value extends true> = Value;
 
-// Low-level kernel ------------------------------------------------------------
+// Low-level declaration-owned kernel ------------------------------------------
 
 const userIdKey: unique symbol = Symbol("UserId");
 const orderIdKey: unique symbol = Symbol("OrderId");
@@ -132,21 +138,6 @@ const sharedStrictEvidenceForgery: SharedStrictEvidence = sharedStrictIdentity;
 declare const sharedStrictEvidence: SharedStrictEvidence;
 const sharedStrictIdentitySurvives: SharedStrictIdentity = sharedStrictEvidence;
 
-declare const packageMarkerA: unique symbol;
-declare const packageMarkerB: unique symbol;
-
-type PackageOwnedA<T, Id extends symbol> = T & {
-  readonly [packageMarkerA]: Id;
-};
-type PackageOwnedB<T, Id extends symbol> = T & {
-  readonly [packageMarkerB]: Id;
-};
-
-declare const packageOwnedA: PackageOwnedA<string, typeof userIdKey>;
-
-// @ts-expect-error package-owned markers split otherwise identical domain identity
-const packageOwnedSplit: PackageOwnedB<string, typeof userIdKey> = packageOwnedA;
-
 declare const broadSymbol: symbol;
 
 // @ts-expect-error broad symbol values do not identify one declaration-owned identity
@@ -165,7 +156,7 @@ defineIdentity<string>()(dynamicSymbol, (mint) => ({ mint }));
 // @ts-expect-error stable evidence requires one declaration-owned symbol
 defineFact<string>()(dynamicSymbol, (establish) => ({ establish }));
 
-// @ts-expect-error aggregate objects are outside Selaws's stable phantom-value kernel
+// @ts-expect-error aggregate objects are outside the stable scalar phantom kernel
 type _invalidObjectIdentity = Identity<{ id: string }, typeof userIdKey>;
 
 // @ts-expect-error aggregate objects cannot define scalar identity formation
@@ -174,31 +165,37 @@ defineIdentity<{ id: string }>();
 // @ts-expect-error aggregate objects cannot define stable scalar evidence
 defineFact<{ id: string }>();
 
-// Ergonomic facade ------------------------------------------------------------
+// Local facade ----------------------------------------------------------------
 
-const NamedUserId = identity.string("NamedUserId");
-type NamedUserId = identity.Value<typeof NamedUserId>;
+const localUserIdKey: unique symbol = Symbol("UserId");
+const localOrderIdKey: unique symbol = Symbol("OrderId");
+const localNonEmptyKey: unique symbol = Symbol("NonEmpty");
+const localAsciiKey: unique symbol = Symbol("Ascii");
 
-const NamedOrderId = identity.string("NamedOrderId");
-type NamedOrderId = identity.Value<typeof NamedOrderId>;
+const LocalUserId = identity.string(localUserIdKey);
+type LocalUserId = identity.Value<typeof LocalUserId>;
 
-const namedUserId = NamedUserId("user-1");
-const namedOrderId = NamedOrderId("order-1");
+const LocalOrderId = identity.string(localOrderIdKey);
+type LocalOrderId = identity.Value<typeof LocalOrderId>;
 
-const namedUserIdAsString: string = namedUserId;
-const namedUserIdAgain: NamedUserId = namedUserId;
+const localUserId = LocalUserId("user-1");
+const localOrderId = LocalOrderId("order-1");
 
-// @ts-expect-error different named identities are incompatible
-const namedWrongIdentity: NamedUserId = namedOrderId;
+const localUserIdAsString: string = localUserId;
+const localUserIdAgain: LocalUserId = localUserId;
 
-// @ts-expect-error raw carrier does not acquire a named identity accidentally
-const namedForgedIdentity: NamedUserId = "user-1";
+// @ts-expect-error different local declarations remain incompatible
+const localWrongIdentity: LocalUserId = localOrderId;
+
+// @ts-expect-error raw carrier does not acquire local identity accidentally
+const localForgedIdentity: LocalUserId = "user-1";
 
 declare const unknownInput: unknown;
-const namedFromUnknown = NamedUserId(unknownInput);
-const namedMaybe: NamedUserId | undefined = namedFromUnknown;
+const localFromUnknown = LocalUserId(unknownInput);
+const localMaybe: LocalUserId | undefined = localFromUnknown;
 
-const CheckedUserId = identity.string("CheckedUserId", (value) =>
+const checkedUserIdKey: unique symbol = Symbol("CheckedUserId");
+const CheckedUserId = identity.string(checkedUserIdKey, (value) =>
   value.startsWith("user_"),
 );
 type CheckedUserId = identity.Value<typeof CheckedUserId>;
@@ -211,120 +208,161 @@ const checkedGoodMaybe: CheckedUserId | undefined = checkedGood;
 const checkedBadMaybe: CheckedUserId | undefined = checkedBad;
 const checkedUnknownMaybe: CheckedUserId | undefined = checkedUnknown;
 
-const NamedNonEmpty = evidence.string("NamedNonEmpty", (value) => value.length > 0);
-const NamedAscii = evidence.string("NamedAscii", (value) =>
+const LocalNonEmpty = evidence.string(localNonEmptyKey, (value) => value.length > 0);
+const LocalAscii = evidence.string(localAsciiKey, (value) =>
   [...value].every((character) => character.charCodeAt(0) <= 0x7f),
 );
 
 type _factCarrierMismatchRejected = Expect<
-  IsNever<evidence.Proven<typeof NamedNonEmpty, number>>
+  IsNever<evidence.Proven<typeof LocalNonEmpty, number>>
 >;
 
-const namedNonEmptyUserId = NamedNonEmpty(namedUserId);
+const localNonEmptyUserId = LocalNonEmpty(localUserId);
 
-if (namedNonEmptyUserId !== undefined) {
-  const namedIdentitySurvivesFact: NamedUserId = namedNonEmptyUserId;
-  const namedFactType: evidence.Proven<typeof NamedNonEmpty, NamedUserId> =
-    namedNonEmptyUserId;
+if (localNonEmptyUserId !== undefined) {
+  const identitySurvivesFact: LocalUserId = localNonEmptyUserId;
+  const factType: evidence.Proven<typeof LocalNonEmpty, LocalUserId> =
+    localNonEmptyUserId;
 
-  const namedAsciiUserId = NamedAscii(namedNonEmptyUserId);
+  const localAsciiUserId = LocalAscii(localNonEmptyUserId);
 
-  if (namedAsciiUserId !== undefined) {
-    const namedBothFacts: evidence.Proven<
-      typeof NamedAscii,
-      evidence.Proven<typeof NamedNonEmpty, NamedUserId>
-    > = namedAsciiUserId;
-    const namedSameIdentity: NamedUserId = namedAsciiUserId;
+  if (localAsciiUserId !== undefined) {
+    const bothFacts: evidence.Proven<
+      typeof LocalAscii,
+      evidence.Proven<typeof LocalNonEmpty, LocalUserId>
+    > = localAsciiUserId;
+    const sameIdentity: LocalUserId = localAsciiUserId;
 
-    const namedTransformed = namedAsciiUserId.trim();
+    const transformed = localAsciiUserId.trim();
 
-    // @ts-expect-error transformations do not preserve named evidence
-    const namedTransformedStillProven: evidence.Proven<typeof NamedNonEmpty, string> =
-      namedTransformed;
+    // @ts-expect-error transformations do not preserve established evidence
+    const transformedStillProven: evidence.Proven<typeof LocalNonEmpty, string> =
+      transformed;
 
-    void namedBothFacts;
-    void namedSameIdentity;
-    void namedTransformedStillProven;
+    void bothFacts;
+    void sameIdentity;
+    void transformedStillProven;
   }
 
-  void namedIdentitySurvivesFact;
-  void namedFactType;
+  void identitySurvivesFact;
+  void factType;
 }
 
-// Named identity deliberately uses the literal name as its owner.
-const SharedNameA = identity.string("SharedName");
-const SharedNameB = identity.string("SharedName");
-type SharedNameA = identity.Value<typeof SharedNameA>;
-type SharedNameB = identity.Value<typeof SharedNameB>;
+const sameDescriptionAKey: unique symbol = Symbol("SameDescription");
+const sameDescriptionBKey: unique symbol = Symbol("SameDescription");
+const SameDescriptionA = identity.string(sameDescriptionAKey);
+const SameDescriptionB = identity.string(sameDescriptionBKey);
+type SameDescriptionA = identity.Value<typeof SameDescriptionA>;
+type SameDescriptionB = identity.Value<typeof SameDescriptionB>;
+declare const sameDescriptionA: SameDescriptionA;
 
-declare const sharedNameA: SharedNameA;
-const sharedNameCompatible: SharedNameB = sharedNameA;
+// @ts-expect-error symbol description spelling does not create semantic identity
+const sameDescriptionB: SameDescriptionB = sameDescriptionA;
+void sameDescriptionB;
 
-// Re-forming an already identified scalar accumulates explicit identities
-// instead of collapsing through a shared payload property.
-const reidentified = NamedOrderId(namedUserId);
-const reidentifiedAsUser: NamedUserId = reidentified;
-const reidentifiedAsOrder: NamedOrderId = reidentified;
+const reidentified = LocalOrderId(localUserId);
+const reidentifiedAsUser: LocalUserId = reidentified;
+const reidentifiedAsOrder: LocalOrderId = reidentified;
 type _reidentifiedNotNever = Expect<
   IsNever<typeof reidentified> extends false ? true : false
 >;
 
-// Strict facade mode recovers declaration-owned identity.
-const strictAKey = Symbol("Strict");
-const strictBKey = Symbol("Strict");
+const sameLocalToken = Symbol("SameLocal");
+const SameLocalA = identity.string(sameLocalToken);
+const SameLocalB = identity.string(sameLocalToken);
+type SameLocalA = identity.Value<typeof SameLocalA>;
+type SameLocalB = identity.Value<typeof SameLocalB>;
+declare const sameLocalA: SameLocalA;
+const sameLocalForward: SameLocalB = sameLocalA;
 
-const StrictA = identity.string(strictAKey);
-const StrictB = identity.string(strictBKey);
-type StrictA = identity.Value<typeof StrictA>;
-type StrictB = identity.Value<typeof StrictB>;
-
-declare const strictA: StrictA;
-
-// @ts-expect-error separate strict declarations remain distinct
-const strictWrong: StrictB = strictA;
-
-const strictFactKey = Symbol("StrictFact");
-const StrictFact = evidence.string(strictFactKey, (value) => value.length > 0);
-
-const SharedStrictDomain = identity.string(sharedStrictKey);
-const SharedStrictFact = evidence.string(sharedStrictKey, (value) => value.length > 0);
-type SharedStrictDomain = identity.Value<typeof SharedStrictDomain>;
-type SharedStrictProven = evidence.Proven<typeof SharedStrictFact, SharedStrictDomain>;
-declare const sharedStrictDomainOnly: SharedStrictDomain;
-
-// @ts-expect-error strict identity does not imply a same-token fact
-const sharedStrictFacadeForgery: SharedStrictProven = sharedStrictDomainOnly;
-
-const strictProven = StrictFact(strictA);
-if (strictProven !== undefined) {
-  const strictIdentitySurvives: StrictA = strictProven;
-  const strictFactType: evidence.Proven<typeof StrictFact, StrictA> = strictProven;
-
-  void strictIdentitySurvives;
-  void strictFactType;
+const sameFactToken = Symbol("SameFact");
+const SameFactA = evidence.string(sameFactToken, (value) => value.length > 0);
+const SameFactB = evidence.string(sameFactToken, (value) => value.length > 0);
+const sameFact = SameFactA("value");
+if (sameFact !== undefined) {
+  const sameFactForward: evidence.Proven<typeof SameFactB, string> = sameFact;
+  void sameFactForward;
 }
 
-// Named facade identity is structural and therefore stable across helper copies.
-type ForeignNamedUserId = string & {
-  readonly "~selaws.identity:NamedUserId": true;
+declare const broadLocalSymbol: symbol;
+
+// @ts-expect-error local factories require one unique symbol identity
+identity.string(broadLocalSymbol);
+
+// @ts-expect-error local fact factories require one unique symbol identity
+evidence.string(broadLocalSymbol, (value) => value.length > 0);
+
+// @ts-expect-error local identity factories do not accept string contracts
+identity.string("example.domain/UserId@1");
+
+// @ts-expect-error local evidence factories do not accept string contracts
+evidence.string("example.fact/NonEmpty@1", (value) => value.length > 0);
+
+// Shared facade ---------------------------------------------------------------
+
+const SharedUserId = identity.shared.string("example.domain/UserId@1");
+type SharedUserId = identity.Value<typeof SharedUserId>;
+
+const SharedUserIdAgain = identity.shared.string("example.domain/UserId@1");
+type SharedUserIdAgain = identity.Value<typeof SharedUserIdAgain>;
+
+declare const sharedUserId: SharedUserId;
+const sharedCompatible: SharedUserIdAgain = sharedUserId;
+
+const SharedOrderId = identity.shared.string("example.domain/OrderId@1");
+type SharedOrderId = identity.Value<typeof SharedOrderId>;
+
+// @ts-expect-error distinct shared contracts remain distinct identities
+const sharedWrongIdentity: SharedOrderId = sharedUserId;
+
+const SharedNonEmpty = evidence.shared.string(
+  "example.fact/NonEmpty@1",
+  (value) => value.length > 0,
+);
+const SharedNonEmptyAgain = evidence.shared.string(
+  "example.fact/NonEmpty@1",
+  (value) => value.length > 0,
+);
+
+const sharedProven = SharedNonEmpty(sharedUserId);
+if (sharedProven !== undefined) {
+  const sharedIdentitySurvives: SharedUserId = sharedProven;
+  const sharedFactCompatible: evidence.Proven<
+    typeof SharedNonEmptyAgain,
+    SharedUserId
+  > = sharedProven;
+
+  void sharedIdentitySurvives;
+  void sharedFactCompatible;
+}
+
+type ForeignSharedUserId = string & {
+  readonly "~selaws.identity:example.domain/UserId@1": true;
 };
-declare const foreignNamedUserId: ForeignNamedUserId;
-const namedDuplicatePackageCompatible: NamedUserId = foreignNamedUserId;
+declare const foreignSharedUserId: ForeignSharedUserId;
+const sharedDuplicatePackageCompatible: SharedUserId = foreignSharedUserId;
+
+type ForeignSharedNonEmpty<Value extends string> = Value & {
+  readonly "~selaws.evidence:example.fact/NonEmpty@1": true;
+};
+declare const foreignSharedNonEmpty: ForeignSharedNonEmpty<SharedUserId>;
+const sharedEvidenceCompatible: evidence.Proven<typeof SharedNonEmpty, SharedUserId> =
+  foreignSharedNonEmpty;
 
 declare const broadName: string;
 
-// @ts-expect-error broad string names are not one stable named identity
-identity.string(broadName);
+// @ts-expect-error shared contracts require one concrete literal
+identity.shared.string(broadName);
 
 declare const unionName: "A" | "B";
 
-// @ts-expect-error a union name is not one stable named identity
-identity.string(unionName);
+// @ts-expect-error a union is not one shared contract identity
+identity.shared.string(unionName);
 
 declare const templateName: `Domain:${string}`;
 
-// @ts-expect-error a template pattern can denote multiple runtime names
-identity.string(templateName);
+// @ts-expect-error a template pattern can denote multiple shared contracts
+identity.shared.string(templateName);
 
 declare const dynamicNameBrand: unique symbol;
 type DynamicName = string & {
@@ -332,26 +370,21 @@ type DynamicName = string & {
 };
 declare const dynamicName: DynamicName;
 
-// @ts-expect-error a branded string can still denote multiple runtime names
-identity.string(dynamicName);
+// @ts-expect-error a branded broad string is not one shared contract
+identity.shared.string(dynamicName);
 
-// @ts-expect-error fact names also require one concrete literal
-evidence.string(templateName, (value) => value.length > 0);
+// @ts-expect-error fact contracts use the same single-name rule
+evidence.shared.string(templateName, (value) => value.length > 0);
 
-// @ts-expect-error strict facade keys require a unique symbol literal
-identity.string(dynamicSymbol);
+// @ts-expect-error shared identity factories do not accept symbol tokens
+identity.shared.string(localUserIdKey);
 
-// @ts-expect-error strict fact keys require a unique symbol literal
-evidence.string(dynamicSymbol, (value) => value.length > 0);
+// @ts-expect-error shared evidence factories do not accept symbol tokens
+evidence.shared.string(localNonEmptyKey, (value) => value.length > 0);
 
-// @ts-expect-error inline Symbol() widens through the factory and is not strict identity
-identity.string(Symbol("Inline"));
-
-// @ts-expect-error strict factory rejects broad symbol values
-identity.string(broadSymbol);
-
-// @ts-expect-error fact names must also be one literal
-evidence.string(broadName, (value) => value.length > 0);
+type _localAndSharedAreDistinct = Expect<
+  Equal<LocalUserId, SharedUserId> extends false ? true : false
+>;
 
 void rawString;
 void sameUserId;
@@ -360,18 +393,18 @@ void forgedIdentity;
 void duplicatePackageCompatible;
 void sharedStrictEvidenceForgery;
 void sharedStrictIdentitySurvives;
-void packageOwnedSplit;
-void namedUserIdAsString;
-void namedUserIdAgain;
-void namedWrongIdentity;
-void namedForgedIdentity;
-void namedMaybe;
+void localUserIdAsString;
+void localUserIdAgain;
+void localWrongIdentity;
+void localForgedIdentity;
+void localMaybe;
 void checkedGoodMaybe;
 void checkedBadMaybe;
 void checkedUnknownMaybe;
-void sharedNameCompatible;
 void reidentifiedAsUser;
 void reidentifiedAsOrder;
-void strictWrong;
-void sharedStrictFacadeForgery;
-void namedDuplicatePackageCompatible;
+void sameLocalForward;
+void sharedCompatible;
+void sharedWrongIdentity;
+void sharedDuplicatePackageCompatible;
+void sharedEvidenceCompatible;

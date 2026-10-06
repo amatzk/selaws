@@ -8,7 +8,6 @@ import {
   type Scalar,
   type SingleName,
   type SingleSymbol,
-  type Token,
 } from "./internal/scalar.js";
 
 export type { Scalar } from "./internal/scalar.js";
@@ -50,71 +49,135 @@ export function defineFact<T extends Scalar>() {
   };
 }
 
-type NamedEvidence<T extends Scalar, Name extends string> = T & {
+type SharedEvidence<T extends Scalar, Name extends string> = T & {
   readonly [Key in `~selaws.evidence:${Name}`]: true;
 };
 
-type FactEvidence<
-  T extends Scalar,
-  TokenValue extends Token,
-> = TokenValue extends string
-  ? NamedEvidence<T, TokenValue>
-  : TokenValue extends symbol
-    ? Evidence<T, TokenValue>
-    : never;
-
 type Predicate<T> = (value: T) => boolean;
 
-interface Fact<T extends Scalar, TokenValue extends Token> {
-  <Value extends T>(value: Value): FactEvidence<Value, TokenValue> | undefined;
-  (value: unknown): FactEvidence<T, TokenValue> | undefined;
-}
+declare const evidenceDeclaration: unique symbol;
 
-interface FactFactory<T extends Scalar> {
-  <const Name extends string>(
-    name: Name & SingleName<Name>,
-    predicate: Predicate<T>,
-  ): Fact<T, Name>;
-
-  <const Key extends symbol>(
-    key: Key & SingleSymbol<Key>,
-    predicate: Predicate<T>,
-  ): Fact<T, Key>;
-}
-
-const factFactory = <T extends Scalar>(
-  isCarrier: (value: unknown) => value is T,
-): FactFactory<T> =>
-  ((_token: Token, predicate: Predicate<T>) => (value: unknown) =>
-    isCarrier(value) && predicate(value)
-      ? value
-      : undefined) as unknown as FactFactory<T>;
-
-type EvidenceFacade = Readonly<{
-  bigint: FactFactory<bigint>;
-  boolean: FactFactory<boolean>;
-  define: typeof defineFact;
-  number: FactFactory<number>;
-  string: FactFactory<string>;
-  symbol: FactFactory<symbol>;
+type LocalEvidenceDeclaration<T extends Scalar, Key extends symbol> = Readonly<{
+  kind: "local";
+  carrier: T;
+  key: Key;
 }>;
 
-/** Stable scalar facts with named or declaration-owned evidence. */
+type SharedEvidenceDeclaration<T extends Scalar, Name extends string> = Readonly<{
+  kind: "shared";
+  carrier: T;
+  name: Name;
+}>;
+
+interface LocalFact<T extends Scalar, Key extends symbol> {
+  readonly [evidenceDeclaration]: LocalEvidenceDeclaration<T, Key>;
+  <Value extends T>(value: Value): Evidence<Value, Key> | undefined;
+  (value: unknown): Evidence<T, Key> | undefined;
+}
+
+interface SharedFact<T extends Scalar, Name extends string> {
+  readonly [evidenceDeclaration]: SharedEvidenceDeclaration<T, Name>;
+  <Value extends T>(value: Value): SharedEvidence<Value, Name> | undefined;
+  (value: unknown): SharedEvidence<T, Name> | undefined;
+}
+
+type LocalFactFactory<T extends Scalar> = <const Key extends symbol>(
+  key: Key & SingleSymbol<Key>,
+  predicate: Predicate<T>,
+) => LocalFact<T, Key>;
+
+type SharedFactFactory<T extends Scalar> = <const Name extends string>(
+  contract: Name & SingleName<Name>,
+  predicate: Predicate<T>,
+) => SharedFact<T, Name>;
+
+const makeFact =
+  <T extends Scalar>(
+    isCarrier: (value: unknown) => value is T,
+    expectedTokenKind: "string" | "symbol",
+  ) =>
+  (token: unknown, predicate: Predicate<T>) => {
+    if (typeof token !== expectedTokenKind) {
+      throw new TypeError(
+        expectedTokenKind === "symbol"
+          ? "Local evidence declarations require a symbol token."
+          : "Shared evidence declarations require a string contract.",
+      );
+    }
+
+    if (typeof predicate !== "function") {
+      throw new TypeError("Evidence predicates must be functions.");
+    }
+
+    return (value: unknown) =>
+      isCarrier(value) && predicate(value) ? value : undefined;
+  };
+
+const localFactFactory = <T extends Scalar>(
+  isCarrier: (value: unknown) => value is T,
+): LocalFactFactory<T> =>
+  makeFact(isCarrier, "symbol") as unknown as LocalFactFactory<T>;
+
+const sharedFactFactory = <T extends Scalar>(
+  isCarrier: (value: unknown) => value is T,
+): SharedFactFactory<T> =>
+  makeFact(isCarrier, "string") as unknown as SharedFactFactory<T>;
+
+type SharedEvidenceFacade = Readonly<{
+  bigint: SharedFactFactory<bigint>;
+  boolean: SharedFactFactory<boolean>;
+  number: SharedFactFactory<number>;
+  string: SharedFactFactory<string>;
+  symbol: SharedFactFactory<symbol>;
+}>;
+
+type EvidenceFacade = Readonly<{
+  bigint: LocalFactFactory<bigint>;
+  boolean: LocalFactFactory<boolean>;
+  define: typeof defineFact;
+  number: LocalFactFactory<number>;
+  shared: SharedEvidenceFacade;
+  string: LocalFactFactory<string>;
+  symbol: LocalFactFactory<symbol>;
+}>;
+
+const shared: SharedEvidenceFacade = {
+  bigint: sharedFactFactory(isBigint),
+  boolean: sharedFactFactory(isBoolean),
+  number: sharedFactFactory(isNumber),
+  string: sharedFactFactory(isString),
+  symbol: sharedFactFactory(isSymbol),
+};
+
+/**
+ * Stable scalar facts.
+ *
+ * Local factories use caller-owned symbol tokens. Shared factories require an
+ * explicit string interoperability contract.
+ */
 export const evidence: EvidenceFacade = {
-  bigint: factFactory(isBigint),
-  boolean: factFactory(isBoolean),
+  bigint: localFactFactory(isBigint),
+  boolean: localFactFactory(isBoolean),
   define: defineFact,
-  number: factFactory(isNumber),
-  string: factFactory(isString),
-  symbol: factFactory(isSymbol),
+  number: localFactFactory(isNumber),
+  shared,
+  string: localFactFactory(isString),
+  symbol: localFactFactory(isSymbol),
 };
 
 export namespace evidence {
   /** Applies an evidence declaration's fact type to an existing scalar value. */
-  export type Proven<F, Value extends Scalar> =
-    F extends Fact<infer T, infer TokenValue>
+  export type Proven<F, Value extends Scalar> = F extends {
+    readonly [evidenceDeclaration]: infer Declaration;
+  }
+    ? Declaration extends LocalEvidenceDeclaration<infer T, infer Key>
       ? Value extends T
-        ? FactEvidence<Value, TokenValue>
+        ? Evidence<Value, Key>
         : never
-      : never;
+      : Declaration extends SharedEvidenceDeclaration<infer T, infer Name>
+        ? Value extends T
+          ? SharedEvidence<Value, Name>
+          : never
+        : never
+    : never;
 }

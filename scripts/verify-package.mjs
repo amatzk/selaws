@@ -187,13 +187,13 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 type IsNever<T> = [T] extends [never] ? true : false;
 
-const UserId = identity.string("UserId");
+const UserId = identity.shared.string("example.domain/UserId@1");
 type UserId = identity.Value<typeof UserId>;
 type RootUserId = rootIdentity.Value<typeof UserId>;
 type _UsefulIdentity = Expect<IsNever<UserId> extends false ? true : false>;
 type _RootIdentityNamespace = Expect<Equal<RootUserId, UserId>>;
 
-const UserIdCopy = identityCopy.string("UserId");
+const UserIdCopy = identityCopy.shared.string("example.domain/UserId@1");
 type UserIdCopy = identityCopy.Value<typeof UserIdCopy>;
 declare const userId: UserId;
 declare const userIdCopy: UserIdCopy;
@@ -201,13 +201,13 @@ const namedCopyForward: UserIdCopy = userId;
 const namedCopyBackward: UserId = userIdCopy;
 
 type EstablishedUserId = string & {
-  readonly "~selaws.identity:UserId": true;
+  readonly "~selaws.identity:example.domain/UserId@1": true;
 };
 declare const establishedUserId: EstablishedUserId;
 const establishedToSelaws: UserId = establishedUserId;
 const selawsToEstablished: EstablishedUserId = userId;
 
-const OrderId = identity.string("OrderId");
+const OrderId = identity.shared.string("example.domain/OrderId@1");
 
 // @ts-expect-error raw carriers do not acquire identity
 const forgedIdentity: UserId = "user_1";
@@ -215,10 +215,17 @@ const forgedIdentity: UserId = "user_1";
 // @ts-expect-error distinct named identities remain distinct
 const wrongIdentity: UserId = OrderId("order_1");
 
-const NonEmpty = evidence.string("NonEmpty", (value) => value.length > 0);
-const NonEmptyCopy = evidenceCopy.string("NonEmpty", (value) => value.length > 0);
+const NonEmpty = evidence.shared.string(
+  "example.fact/NonEmpty@1",
+  (value) => value.length > 0,
+);
+const NonEmptyCopy = evidenceCopy.shared.string(
+  "example.fact/NonEmpty@1",
+  (value) => value.length > 0,
+);
+const packageAsciiKey: unique symbol = Symbol("Ascii");
 const Ascii = evidence.string(
-  "Ascii",
+  packageAsciiKey,
   (value) => [...value].every((character) => character.charCodeAt(0) <= 0x7f),
 );
 type NonEmptyUserId = evidence.Proven<typeof NonEmpty, UserId>;
@@ -231,7 +238,7 @@ const evidenceCopyForward: NonEmptyUserIdCopy = proven;
 const evidenceCopyBackward: NonEmptyUserId = provenCopy;
 
 type EstablishedNonEmpty = string & {
-  readonly "~selaws.evidence:NonEmpty": true;
+  readonly "~selaws.evidence:example.fact/NonEmpty@1": true;
 };
 declare const establishedNonEmpty: EstablishedNonEmpty;
 const establishedEvidence: evidence.Proven<typeof NonEmpty, string> =
@@ -343,7 +350,7 @@ declare const packageMixedProtocolOuter:
 // @ts-expect-error every possible outer relation carrier must be readonly
 defineProtocol(packageMixedProtocolOuter);
 
-const PackageMessage = defineVariant("PackageMessage", [
+const PackageMessage = Variant.shared("example.variant/PackageMessage@1", [
   ["none", variantUnit],
   ["text", variantPayload<string>()],
 ]);
@@ -355,7 +362,7 @@ type _VariantNamespace = Expect<Equal<PackageMessageAlias, PackageMessage>>;
 type _RootVariantNamespace = Expect<Equal<RootPackageMessage, PackageMessage>>;
 type _RootVariantAlias = Expect<Equal<RootPackageMessageAlias, PackageMessage>>;
 
-const PackageMessageCopy = VariantCopyFacade.define("PackageMessage", [
+const PackageMessageCopy = VariantCopyFacade.shared("example.variant/PackageMessage@1", [
   ["none", variantUnitCopy],
   ["text", variantPayloadCopy<string>()],
 ]);
@@ -369,7 +376,7 @@ declare const packageMessageCopy: PackageMessageCopy;
 const variantCopyForward: PackageMessageCopy = packageMessage;
 const variantCopyBackward: PackageMessage = packageMessageCopy;
 
-const PackageMessageCopyReordered = VariantCopyFacade.define("PackageMessage", [
+const PackageMessageCopyReordered = VariantCopyFacade.shared("example.variant/PackageMessage@1", [
   ["text", variantPayloadCopy<string>()],
   ["none", variantUnitCopy],
 ]);
@@ -393,25 +400,26 @@ declare const packageBroadCases: readonly (
   readonly [string, typeof variantUnit]
 )[];
 // @ts-expect-error a broad-length spread is not one exact closed family
-defineVariant("PackageBroadCases", packageBroadCases);
+defineVariant(Symbol("PackageBroadCases"), packageBroadCases);
 
 const packageMutableEntry: ["a", typeof variantUnit] = ["a", variantUnit];
 // @ts-expect-error mutable case pairs can be widened and mutated through array covariance
-defineVariant("PackageMutableEntry", [packageMutableEntry]);
+defineVariant(Symbol("PackageMutableEntry"), [packageMutableEntry]);
 
 const packageMutableCaseList: [readonly ["a", typeof variantUnit]] = [
   ["a", variantUnit],
 ];
 // @ts-expect-error mutable outer case tuples can be widened and changed before definition
-defineVariant("PackageMutableCaseList", packageMutableCaseList);
+defineVariant(Symbol("PackageMutableCaseList"), packageMutableCaseList);
 
 interface PackageConsPayload<T> {
   readonly head: T;
   readonly tail: Variant.Value<ReturnType<typeof PackageList<T>>>;
 }
 
+const packageListKey: unique symbol = Symbol("PackageList");
 const PackageList = <T>() =>
-  defineVariant("PackageList", [
+  defineVariant(packageListKey, [
     ["nil", variantUnit],
     ["cons", variantPayload<PackageConsPayload<T>>()],
   ]);
@@ -426,7 +434,8 @@ const packageCons: PackageList<number> = PackageNumberList.make.cons({
 });
 void packageCons;
 
-const PackageOverloadedCase = defineVariant("PackageOverloadedCase", [
+const packageOverloadedCaseKey: unique symbol = Symbol("PackageOverloadedCase");
+const PackageOverloadedCase = defineVariant(packageOverloadedCaseKey, [
   ["value", variantPayload<number>()],
 ]);
 
@@ -522,7 +531,8 @@ PackageOverloadedCase.match(PackageOverloadedCase.make.value(1), {
   value: packageReceiverRequired,
 });
 
-const MixedPackageMessage = Variant.define("MixedPackageMessage", [
+const mixedPackageMessageKey: unique symbol = Symbol("MixedPackageMessage");
+const MixedPackageMessage = Variant.define(mixedPackageMessageKey, [
   ["none", variantUnitCopy],
   ["text", variantPayloadCopy<string>()],
 ]);
@@ -792,7 +802,7 @@ const expectedFocusedSurfaces = new Map([
   ["selaws/identity", ["defineIdentity", "identity"]],
   ["selaws/evidence", ["defineFact", "evidence"]],
   ["selaws/protocol", ["Protocol", "define"]],
-  ["selaws/variant", ["Variant", "define", "payload", "unit"]],
+  ["selaws/variant", ["Variant", "define", "payload", "shared", "unit"]],
   [
     "selaws/option",
     [
@@ -883,24 +893,41 @@ assert.strictEqual(Variant.payload(), VariantCopy.payload());
 assert.strictEqual(root.Result, Result);
 assert.strictEqual(root.Validation, Validation);
 
+assert.throws(
+  () => identity.string("example.domain/Wrong@1"),
+  /symbol token/,
+);
+assert.throws(
+  () => identity.shared.string(Symbol("Wrong")),
+  /string contract/,
+);
+assert.throws(
+  () => evidence.string("example.fact/Wrong@1", () => true),
+  /symbol token/,
+);
+assert.throws(
+  () => Variant.define("example.variant/Wrong@1", [["ready", Variant.unit]]),
+  /symbol token/,
+);
+
 const symbolValue = Symbol("runtime");
 const scalarCases = [
-  [identity.string("RuntimeString"), "value"],
-  [identity.number("RuntimeNumber"), 1],
-  [identity.bigint("RuntimeBigint"), 1n],
-  [identity.boolean("RuntimeBoolean"), true],
-  [identity.symbol("RuntimeSymbol"), symbolValue],
+  [identity.string(Symbol("RuntimeString")), "value"],
+  [identity.number(Symbol("RuntimeNumber")), 1],
+  [identity.bigint(Symbol("RuntimeBigint")), 1n],
+  [identity.boolean(Symbol("RuntimeBoolean")), true],
+  [identity.symbol(Symbol("RuntimeSymbol")), symbolValue],
 ];
 
 for (const [domain, value] of scalarCases) {
   assert.equal(Object.is(domain(value), value), true);
 }
 
-const UserId = identity.string("UserId");
+const UserId = identity.string(Symbol("UserId"));
 const raw = "user_1";
 assert.equal(Object.is(UserId(raw), raw), true);
 
-const NonEmpty = evidence.string("NonEmpty", (value) => value.length > 0);
+const NonEmpty = evidence.string(Symbol("NonEmpty"), (value) => value.length > 0);
 assert.equal(NonEmpty(raw), raw);
 assert.equal(NonEmpty(""), undefined);
 
@@ -911,7 +938,7 @@ const runtimeProtocol = Protocol.define([
 assert.equal(runtimeProtocol.allows("pending", "pay", "paid"), true);
 assert.equal(runtimeProtocol.allows("pending", "pay", "cancelled"), false);
 
-const runtimeVariant = Variant.define("RuntimeVariant", [
+const runtimeVariant = Variant.define(Symbol("RuntimeVariant"), [
   ["empty", Variant.unit],
   ["value", Variant.payload()],
 ]);
@@ -925,7 +952,7 @@ assert.equal(
   2,
 );
 
-const mixedRuntimeVariant = Variant.define("MixedRuntimeVariant", [
+const mixedRuntimeVariant = Variant.define(Symbol("MixedRuntimeVariant"), [
   ["empty", VariantCopy.unit],
   ["value", VariantCopy.payload()],
 ]);
@@ -987,7 +1014,7 @@ for (const [name, invoke, selectedKey, otherKey] of [
   assert.equal(unselectedReads, 0);
 }
 
-const installedMatchVariant = Variant.define("InstalledMatchVariant", [
+const installedMatchVariant = Variant.define(Symbol("InstalledMatchVariant"), [
   ["selected", Variant.payload()],
   ["other", Variant.unit],
 ]);

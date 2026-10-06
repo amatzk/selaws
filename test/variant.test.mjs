@@ -2,19 +2,32 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { Variant as RootVariant } from "../dist/index.js";
-import { define, payload, unit, Variant } from "../dist/variant.js";
+import { define, payload, shared, unit, Variant } from "../dist/variant.js";
 
 test("root and focused facades share the Variant owner", () => {
   assert.strictEqual(RootVariant, Variant);
   assert.strictEqual(Variant.define, define);
   assert.strictEqual(Variant.payload, payload);
+  assert.strictEqual(Variant.shared, shared);
   assert.strictEqual(Variant.unit, unit);
   assert.deepEqual(Object.keys(unit), []);
   assert.deepEqual(Object.keys(payload()), []);
 });
 
+test("local and shared family APIs validate token kind", () => {
+  assert.throws(
+    () => define("example.variant/Message@1", [["ready", unit]]),
+    /symbol token/,
+  );
+  assert.throws(() => shared(Symbol("Message"), [["ready", unit]]), /string contract/);
+
+  const SharedA = shared("example.variant/Message@1", [["ready", unit]]);
+  const SharedB = shared("example.variant/Message@1", [["ready", unit]]);
+  assert.deepEqual(SharedA.make.ready(), SharedB.make.ready());
+});
+
 test("constructors preserve transparent tagged-data representation", () => {
-  const Message = define("Message", [
+  const Message = define(Symbol("Message"), [
     ["quit", unit],
     ["write", payload()],
     ["explicitUndefined", payload()],
@@ -32,7 +45,7 @@ test("constructors preserve transparent tagged-data representation", () => {
 });
 
 test("match invokes exactly the declared case handler with declared arity", () => {
-  const Message = define("Message", [
+  const Message = define(Symbol("Message"), [
     ["quit", unit],
     ["write", payload()],
   ]);
@@ -83,7 +96,7 @@ test("definition snapshots case entries and ignores later declaration mutation",
     ["first", unit],
     ["second", payload()],
   ];
-  const Family = define("Snapshot", cases);
+  const Family = define(Symbol("Snapshot"), cases);
 
   cases[0][1] = payload();
   cases[1][0] = "renamed";
@@ -96,7 +109,7 @@ test("definition snapshots case entries and ignores later declaration mutation",
 });
 
 test("family and constructor namespace are immutable", () => {
-  const Family = define("Frozen", [["ready", unit]]);
+  const Family = define(Symbol("Frozen"), [["ready", unit]]);
 
   assert.equal(Object.isFrozen(Family), true);
   assert.equal(Object.isFrozen(Family.make), true);
@@ -106,7 +119,7 @@ test("family and constructor namespace are immutable", () => {
 });
 
 test("hostile but legal case names do not collide with family operations", () => {
-  const Family = define("Names", [
+  const Family = define(Symbol("Names"), [
     ["__proto__", unit],
     ["constructor", unit],
     ["make", unit],
@@ -122,15 +135,18 @@ test("hostile but legal case names do not collide with family operations", () =>
 });
 
 test("definition rejects malformed, duplicate, non-string, and forged case entries", () => {
-  assert.throws(() => define("Null", null), /arrays/);
-  assert.throws(() => define("Object", {}), /arrays/);
-  assert.throws(() => define("MissingSpec", [["ready"]]), /pairs/);
-  assert.throws(() => define("ExtraField", [["ready", unit, "extra"]]), /pairs/);
-  assert.throws(() => define("Sparse", new Array(1)), /own case entries/);
+  assert.throws(() => define(Symbol("Null"), null), /arrays/);
+  assert.throws(() => define(Symbol("Object"), {}), /arrays/);
+  assert.throws(() => define(Symbol("MissingSpec"), [["ready"]]), /pairs/);
+  assert.throws(
+    () => define(Symbol("ExtraField"), [["ready", unit, "extra"]]),
+    /pairs/,
+  );
+  assert.throws(() => define(Symbol("Sparse"), new Array(1)), /own case entries/);
 
   assert.throws(
     () =>
-      define("SymbolCase", [
+      define(Symbol("SymbolCase"), [
         [Symbol("hidden"), unit],
         ["ready", unit],
       ]),
@@ -139,7 +155,7 @@ test("definition rejects malformed, duplicate, non-string, and forged case entri
 
   assert.throws(
     () =>
-      define("Duplicate", [
+      define(Symbol("Duplicate"), [
         ["ready", unit],
         ["ready", payload()],
       ]),
@@ -147,7 +163,7 @@ test("definition rejects malformed, duplicate, non-string, and forged case entri
   );
 
   assert.throws(
-    () => define("Forged", [["ready", {}]]),
+    () => define(Symbol("Forged"), [["ready", {}]]),
     /Variant\.unit or Variant\.payload/,
   );
 
@@ -155,7 +171,10 @@ test("definition rejects malformed, duplicate, non-string, and forged case entri
   Object.setPrototypeOf(inheritedEntries, {
     0: ["ready", unit],
   });
-  assert.throws(() => define("InheritedEntry", inheritedEntries), /own case entries/);
+  assert.throws(
+    () => define(Symbol("InheritedEntry"), inheritedEntries),
+    /own case entries/,
+  );
 
   const inheritedPair = new Array(2);
   Object.setPrototypeOf(inheritedPair, {
@@ -163,13 +182,13 @@ test("definition rejects malformed, duplicate, non-string, and forged case entri
     1: unit,
   });
   assert.throws(
-    () => define("InheritedPair", [inheritedPair]),
+    () => define(Symbol("InheritedPair"), [inheritedPair]),
     /own \[name, spec\] pairs/,
   );
 });
 
 test("match rejects undeclared tags and incomplete JavaScript handler objects", () => {
-  const Family = define("Family", [
+  const Family = define(Symbol("Family"), [
     ["ready", unit],
     ["value", payload()],
   ]);
@@ -229,7 +248,7 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
     /own function for every declared case/,
   );
 
-  const ConstructorCase = define("ConstructorCase", [
+  const ConstructorCase = define(Symbol("ConstructorCase"), [
     ["constructor", unit],
     ["ready", unit],
   ]);
@@ -242,7 +261,7 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
     /own function for every declared case/,
   );
 
-  const ProtoCase = define("ProtoCase", [
+  const ProtoCase = define(Symbol("ProtoCase"), [
     ["__proto__", unit],
     ["ready", unit],
   ]);
@@ -287,7 +306,7 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
 });
 
 test("match uses the declaration snapshot rather than value extra properties", () => {
-  const Family = define("Extra", [
+  const Family = define(Symbol("Extra"), [
     ["unitCase", unit],
     ["payloadCase", payload()],
   ]);
@@ -309,7 +328,7 @@ test("match uses the declaration snapshot rather than value extra properties", (
 });
 
 test("handler throws and async returns keep native JavaScript completion", async () => {
-  const Family = define("Completion", [
+  const Family = define(Symbol("Completion"), [
     ["unitCase", unit],
     ["payloadCase", payload()],
   ]);

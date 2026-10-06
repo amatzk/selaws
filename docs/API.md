@@ -113,27 +113,33 @@ identity.number
 identity.bigint
 identity.boolean
 identity.symbol
+identity.shared.string
+identity.shared.number
+identity.shared.bigint
+identity.shared.boolean
+identity.shared.symbol
 identity.define
 identity.Value
 ```
 
-### Named formation
+### Local formation and explicit shared contracts
 
 ```ts
-const UserId = identity.string("UserId");
+const userIdKey: unique symbol = Symbol("UserId");
+const UserId = identity.string(userIdKey);
 type UserId = identity.Value<typeof UserId>;
 
 const id = UserId("u_1");
 ```
 
-Each carrier factory accepts either a concrete string name or a narrow symbol.
-Without a predicate, a correctly typed carrier is formed directly and unknown
-input is checked for the correct scalar kind. With a predicate, formation can
-return `undefined`.
+Local carrier factories require one narrow symbol token. Without a predicate, a
+correctly typed carrier is formed directly and unknown input is checked for the
+correct scalar kind. With a predicate, formation can return `undefined`.
 
 ```ts
+const portKey: unique symbol = Symbol("Port");
 const Port = identity.number(
-  "Port",
+  portKey,
   (value) =>
     Number.isInteger(value) &&
     value >= 0 &&
@@ -141,8 +147,17 @@ const Port = identity.number(
 );
 ```
 
-String names define package-copy-stable structural identity. A bound symbol
-defines declaration-owned identity.
+Intentional cross-package structural compatibility is explicit:
+
+```ts
+const SharedUserId =
+  identity.shared.string(
+    "example.domain/UserId@1",
+  );
+```
+
+Shared factories require one concrete literal string contract. See
+[Declaration compatibility](./laws/declaration-compatibility.md).
 
 ### `defineIdentity`
 
@@ -165,6 +180,11 @@ evidence.number
 evidence.bigint
 evidence.boolean
 evidence.symbol
+evidence.shared.string
+evidence.shared.number
+evidence.shared.bigint
+evidence.shared.boolean
+evidence.shared.symbol
 evidence.define
 evidence.Proven
 ```
@@ -172,8 +192,10 @@ evidence.Proven
 Every Evidence factory requires a predicate.
 
 ```ts
+const nonEmptyKey: unique symbol = Symbol("NonEmpty");
+
 const NonEmpty = evidence.string(
-  "NonEmpty",
+  nonEmptyKey,
   (value) => value.length > 0,
 );
 
@@ -280,11 +302,13 @@ Runtime exports and facade members:
 
 ```text
 define
+shared
 payload
 unit
 Variant
 
 Variant.define
+Variant.shared
 Variant.payload
 Variant.unit
 Variant.Value
@@ -293,7 +317,9 @@ Variant.Value
 ### Declare a family
 
 ```ts
-const Message = Variant.define("Message", [
+const messageKey: unique symbol = Symbol("Message");
+
+const Message = Variant.define(messageKey, [
   ["quit", Variant.unit],
   ["write", Variant.payload<string>()],
 ]);
@@ -337,8 +363,10 @@ also carry their payload as an own data `value` property. The selected tag must
 belong to the declaration, and the selected handler must be an own function
 property.
 
-A string family token defines named package-copy-stable identity. A bound
-symbol defines declaration-owned family identity.
+`Variant.define` requires a declaration-owned narrow symbol token.
+`Variant.shared` requires an explicit concrete string interoperability
+contract. Shared families remain structurally compatible across duplicate
+package copies only when the contract and exact family signature agree.
 
 ## `selaws/option`
 

@@ -327,33 +327,50 @@ const createFamily = <TokenValue extends Token, Entries extends readonly CaseEnt
   return Object.freeze(family);
 };
 
-type VariantToken<TokenValue extends Token> = [TokenValue] extends [string]
-  ? TokenValue & SingleName<TokenValue & string>
-  : [TokenValue] extends [symbol]
-    ? TokenValue & SingleSymbol<TokenValue & symbol>
-    : never;
-
-/** Defines one named or declaration-owned closed Variant family. */
+/** Defines one declaration-owned closed Variant family. */
 export const define = <
-  const TokenValue extends Token,
+  const TokenValue extends symbol,
   const Entries extends readonly CaseEntry[],
 >(
-  token: VariantToken<TokenValue>,
+  token: TokenValue & SingleSymbol<TokenValue>,
   entries: Entries,
   ..._closed: ClosedCaseEntries<Entries> extends never ? [never] : []
-): VariantFamily<TokenValue, CaseSpecsFromEntries<Entries>> =>
-  createFamily<TokenValue, Entries>(token as TokenValue, entries);
+): VariantFamily<TokenValue, CaseSpecsFromEntries<Entries>> => {
+  if (typeof token !== "symbol") {
+    throw new TypeError("Local Variant declarations require a symbol token.");
+  }
+
+  return createFamily<TokenValue, Entries>(token, entries);
+};
+
+/** Defines one intentionally shared structural Variant family contract. */
+export const shared = <
+  const Name extends string,
+  const Entries extends readonly CaseEntry[],
+>(
+  contract: Name & SingleName<Name>,
+  entries: Entries,
+  ..._closed: ClosedCaseEntries<Entries> extends never ? [never] : []
+): VariantFamily<Name, CaseSpecsFromEntries<Entries>> => {
+  if (typeof contract !== "string") {
+    throw new TypeError("Shared Variant declarations require a string contract.");
+  }
+
+  return createFamily<Name, Entries>(contract, entries);
+};
 
 type VariantFacade = Readonly<{
   define: typeof define;
   payload: typeof payload;
+  shared: typeof shared;
   unit: typeof unit;
 }>;
 
-/** Closed labeled alternatives with correlated payloads and exhaustive elimination. */
+/** Closed labeled alternatives with explicit local or shared family identity. */
 export const Variant: VariantFacade = {
   define,
   payload,
+  shared,
   unit,
 };
 

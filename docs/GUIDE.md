@@ -69,10 +69,13 @@ TypeScript.
 ```ts
 import { identity } from "selaws/identity";
 
-export const UserId = identity.string("UserId");
+const userIdKey: unique symbol = Symbol("UserId");
+const orderIdKey: unique symbol = Symbol("OrderId");
+
+export const UserId = identity.string(userIdKey);
 export type UserId = identity.Value<typeof UserId>;
 
-export const OrderId = identity.string("OrderId");
+export const OrderId = identity.string(orderIdKey);
 export type OrderId = identity.Value<typeof OrderId>;
 
 function findUser(id: UserId) {}
@@ -337,7 +340,9 @@ alternative owns its payload shape.
 ```ts
 import { Variant } from "selaws/variant";
 
-const LoadUserError = Variant.define("LoadUserError", [
+const loadUserErrorKey: unique symbol = Symbol("LoadUserError");
+
+const LoadUserError = Variant.define(loadUserErrorKey, [
   ["notFound", Variant.payload<Readonly<{ id: UserId }>>()],
   ["forbidden", Variant.unit],
   ["storage", Variant.payload<Readonly<{ cause: unknown }>>()],
@@ -391,8 +396,10 @@ Use ordinary narrowing when local control flow already owns the branch.
 ### Generic Variant families
 
 ```ts
+const remoteKey: unique symbol = Symbol("Remote");
+
 const Remote = <T>() =>
-  Variant.define("Remote", [
+  Variant.define(remoteKey, [
     ["idle", Variant.unit],
     ["success", Variant.payload<T>()],
     ["failure", Variant.payload<Error>()],
@@ -417,7 +424,9 @@ interface AddPayload {
   readonly right: Expr;
 }
 
-const Expr = Variant.define("Expr", [
+const exprKey: unique symbol = Symbol("Expr");
+
+const Expr = Variant.define(exprKey, [
   ["literal", Variant.payload<number>()],
   ["add", Variant.payload<AddPayload>()],
 ]);
@@ -549,7 +558,9 @@ Variant can own an event vocabulary while Protocol owns the relation between
 scalar state identifiers and event labels.
 
 ```ts
-const OrderEvent = Variant.define("OrderEvent", [
+const orderEventKey: unique symbol = Symbol("OrderEvent");
+
+const OrderEvent = Variant.define(orderEventKey, [
   ["pay", Variant.payload<Readonly<{
     transactionId: string;
   }>>()],
@@ -647,43 +658,53 @@ const input = Validation.struct([
 
 Scheduling belongs to Promise. Accumulation belongs to Validation.
 
-## 14. Choose named or declaration-owned identity deliberately
+## 14. Choose local or shared declaration compatibility deliberately
 
-Identity, Evidence, and Variant support two identity modes.
-
-A string literal is a shared structural name:
+Identity, Evidence, and Variant default to declaration-owned symbols.
 
 ```ts
-const UserId = identity.string("UserId");
-```
-
-Compatible producers that use the same owner, name, and declaration meaning can
-interoperate across duplicate Selaws installations.
-
-A bound unique symbol makes one declaration own identity:
-
-```ts
-const UserIdKey: unique symbol =
+const userIdKey: unique symbol =
   Symbol("UserId");
 
-const StrictUserId =
-  identity.string(UserIdKey);
+const UserId =
+  identity.string(userIdKey);
 ```
 
-Variant uses the same choice:
+The symbol description is only diagnostic text. Two distinct symbols remain
+distinct meanings even when both were created as `Symbol("UserId")`.
+
+When independently compiled producers intentionally need structural
+compatibility, opt in with a shared contract:
 
 ```ts
-const EventKey: unique symbol =
+const SharedUserId =
+  identity.shared.string(
+    "example.domain/UserId@1",
+  );
+```
+
+Variant uses the same split:
+
+```ts
+const eventKey: unique symbol =
   Symbol("Event");
 
-const Event = Variant.define(EventKey, [
+const Event = Variant.define(eventKey, [
   ["started", Variant.unit],
   ["stopped", Variant.unit],
 ]);
+
+const SharedEvent = Variant.shared(
+  "example.protocol/Event@1",
+  [
+    ["started", Variant.unit],
+    ["stopped", Variant.unit],
+  ],
+);
 ```
 
-Use a symbol when declaration identity itself matters. Use a string name when a
-shared structural identity is the intended compatibility contract.
+The shared string is a compatibility contract, not a display name. Use it only
+when structural interoperability is intentional.
 
 ## 15. Keep boundary work with the application
 

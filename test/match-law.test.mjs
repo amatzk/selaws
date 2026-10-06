@@ -44,7 +44,7 @@ test("shared Match law selects one handler without supplying a receiver", () => 
     assert.equal(receiver, undefined, name);
   }
 
-  const Family = Variant.define("MatchReceiver", [
+  const Family = Variant.define(Symbol("MatchReceiver"), [
     ["selected", Variant.payload()],
     ["other", Variant.unit],
   ]);
@@ -113,7 +113,7 @@ test("selected handler resolution remains owner-defined and abrupt", () => {
     assert.equal(unselectedReads, 0, name);
   }
 
-  const Family = Variant.define("MatchAccessorBoundary", [
+  const Family = Variant.define(Symbol("MatchAccessorBoundary"), [
     ["selected", Variant.payload()],
   ]);
   let selectedGetterCalls = 0;
@@ -172,7 +172,7 @@ test("shared Match law preserves owner-defined branch payload and arity", () => 
   );
   assert.strictEqual(seenIssues, validation.errors);
 
-  const Family = Variant.define("MatchPayload", [
+  const Family = Variant.define(Symbol("MatchPayload"), [
     ["unitCase", Variant.unit],
     ["payloadCase", Variant.payload()],
   ]);
@@ -241,7 +241,9 @@ test("shared Match law preserves selected handler completion", async () => {
     (error) => error === thrown,
   );
 
-  const Family = Variant.define("MatchCompletion", [["value", Variant.payload()]]);
+  const Family = Variant.define(Symbol("MatchCompletion"), [
+    ["value", Variant.payload()],
+  ]);
   assert.throws(
     () =>
       Family.match(Family.make.value(1), {
@@ -326,7 +328,7 @@ test("receiver-neutral Match preserves explicit JavaScript binding", () => {
     "validation",
   );
 
-  const Family = Variant.define("BoundMatch", [["value", Variant.payload()]]);
+  const Family = Variant.define(Symbol("BoundMatch"), [["value", Variant.payload()]]);
   assert.equal(
     Family.match(Family.make.value("variant"), {
       value: selected,
@@ -366,7 +368,9 @@ test("Match returns arbitrary thenables unchanged", () => {
     thenable,
   );
 
-  const Family = Variant.define("ThenableMatch", [["value", Variant.payload()]]);
+  const Family = Variant.define(Symbol("ThenableMatch"), [
+    ["value", Variant.payload()],
+  ]);
   assert.strictEqual(
     Family.match(Family.make.value(1), {
       value: () => thenable,

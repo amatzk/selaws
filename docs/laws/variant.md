@@ -15,7 +15,10 @@ Use Variant when a domain owns a finite alternative vocabulary whose case name
 and payload type must stay correlated.
 
 ```ts
-const Message = Variant.define("Message", [
+const messageKey: unique symbol =
+  Symbol("Message");
+
+const Message = Variant.define(messageKey, [
   ["quit", Variant.unit],
   ["write", Variant.payload<string>()],
 ]);
@@ -51,25 +54,37 @@ family-level exhaustive handling obligation.
 
 ## 2. Family identity
 
-A string family name gives package-copy-stable named identity. A bound
-`Symbol` gives declaration-owned identity.
+Declaration-owned family identity is the default.
 
-Named family values use the structural phantom key:
+`Variant.define(token, entries)` requires one caller-owned narrow symbol. The
+symbol is the phantom property key. Separate symbols remain separate families
+even when their descriptions are equal.
 
-```text
-~selaws.variant:<Name>
+Intentional structural compatibility is explicit:
+
+```ts
+const SharedMessage = Variant.shared(
+  "example.protocol/Message@1",
+  [
+    ["quit", Variant.unit],
+    ["write", Variant.payload<string>()],
+  ],
+);
 ```
 
-Declaration-owned families use the caller-owned symbol as the phantom property
-key.
+Shared family values use the structural phantom key:
 
-The phantom marker includes the Variant category, closed case-name universe,
-and case signatures. Case-name universes are exact; payload positions retain
-ordinary TypeScript structural variance.
+```text
+~selaws.variant:<Contract>
+```
 
-Duplicate compatible Selaws installations therefore agree on an identically
-declared named family, while distinct names and distinct caller-owned symbols
-remain separate families.
+The phantom marker also includes the Variant category, exact closed case-name
+universe, and case signatures. Two shared declarations with the same contract
+but different family signatures are not compatible.
+
+Choosing the same shared contract is an interoperability assertion, not a
+display-name coincidence. See
+[Declaration compatibility](./declaration-compatibility.md).
 
 ## 3. Case formation
 
@@ -165,11 +180,14 @@ if (message.tag === "write") {
 
 ## 6. Generic and recursive families
 
-A generic family can be an ordinary factory:
+A generic family can be an ordinary factory whose declaration owns one symbol:
 
 ```ts
+const remoteKey: unique symbol =
+  Symbol("Remote");
+
 const Remote = <T>() =>
-  Variant.define("Remote", [
+  Variant.define(remoteKey, [
     ["idle", Variant.unit],
     ["success", Variant.payload<T>()],
   ]);
@@ -187,7 +205,10 @@ interface AddPayload {
   readonly right: Expr;
 }
 
-const Expr = Variant.define("Expr", [
+const exprKey: unique symbol =
+  Symbol("Expr");
+
+const Expr = Variant.define(exprKey, [
   ["literal", Variant.payload<number>()],
   ["add", Variant.payload<AddPayload>()],
 ]);
@@ -218,12 +239,17 @@ Runtime schema decoding, normalization, authorization, mutable freshness, and
 version negotiation belong to application owners that can establish those
 facts.
 
-The runtime declaration boundary recognizes its finite case grammar. `match`
-checks selected case membership and selected handler availability. Payload type
+The runtime declaration boundary recognizes its own grammar. `Variant.define`
+requires a symbol token; `Variant.shared` requires a string contract. Both
+forms validate finite case declarations. `match` checks selected case
+membership and selected handler availability. Payload type
 validity remains a TypeScript guarantee inside the ordinary Selaws trust model.
 
 ```ts
-const UserEvent = Variant.define("UserEvent", [
+const userEventKey: unique symbol =
+  Symbol("UserEvent");
+
+const UserEvent = Variant.define(userEventKey, [
   ["loaded", Variant.payload<User>()],
 ]);
 ```

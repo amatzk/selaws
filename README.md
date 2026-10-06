@@ -51,10 +51,13 @@ compilers are outside the compatibility contract.
 ```ts
 import { identity } from "selaws/identity";
 
-export const UserId = identity.string("UserId");
+const userIdKey: unique symbol = Symbol("UserId");
+const orderIdKey: unique symbol = Symbol("OrderId");
+
+export const UserId = identity.string(userIdKey);
 export type UserId = identity.Value<typeof UserId>;
 
-export const OrderId = identity.string("OrderId");
+export const OrderId = identity.string(orderIdKey);
 export type OrderId = identity.Value<typeof OrderId>;
 
 function loadUser(id: UserId) {}
@@ -69,8 +72,10 @@ which domain identity the scalar carries.
 Use a checked identity when formation itself owns a local condition:
 
 ```ts
+const portKey: unique symbol = Symbol("Port");
+
 const Port = identity.number(
-  "Port",
+  portKey,
   (value) =>
     Number.isInteger(value) &&
     value >= 0 &&
@@ -81,8 +86,10 @@ const port = Port(input);
 // Port | undefined
 ```
 
-String names provide package-copy-stable named identity. A bound `Symbol`
-provides declaration-owned identity when one declaration must control formation.
+A bound `Symbol` is the default declaration-owned identity. Independent
+packages that intentionally need structural compatibility opt into an explicit
+contract with `identity.shared.*`. The same local/shared distinction applies
+to Evidence and Variant family identity.
 
 ## Establish stable facts without replacing identity
 
@@ -143,7 +150,9 @@ than one target.
 ```ts
 import { Variant } from "selaws/variant";
 
-const Message = Variant.define("Message", [
+const messageKey: unique symbol = Symbol("Message");
+
+const Message = Variant.define(messageKey, [
   ["quit", Variant.unit],
   ["write", Variant.payload<string>()],
   ["move", Variant.payload<Readonly<{ x: number; y: number }>>()],
@@ -275,7 +284,9 @@ return saveUser(user.value, ready.value.email);
 A Result error can itself use a Variant-owned domain vocabulary:
 
 ```ts
-const LoadUserError = Variant.define("LoadUserError", [
+const loadUserErrorKey: unique symbol = Symbol("LoadUserError");
+
+const LoadUserError = Variant.define(loadUserErrorKey, [
   ["notFound", Variant.payload<{ id: string }>()],
   ["storage", Variant.payload<{ cause: unknown }>()],
 ]);
@@ -353,4 +364,4 @@ law rather than centralized as a dispatcher.
 - [Guide](./docs/GUIDE.md) — practical patterns and owner composition.
 - [API](./docs/API.md) — public exports and operation groups.
 - [Semantics](./docs/SEMANTICS.md) — package-wide normative ownership and shared laws.
-- [Laws](./docs/laws/) — normative owner laws and shared laws such as [Match](./docs/laws/match.md).
+- [Laws](./docs/laws/) — normative owner laws and shared laws such as [Match](./docs/laws/match.md) and [Declaration compatibility](./docs/laws/declaration-compatibility.md).

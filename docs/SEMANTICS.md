@@ -25,6 +25,8 @@ The detailed owner contracts are:
 
 Cross-owner semantics can also be first-class shared laws without becoming new
 owners. The shared Match contract is [laws/match.md](./laws/match.md).
+Declaration-local versus explicit shared structural identity is governed by
+[declaration compatibility](./laws/declaration-compatibility.md).
 
 The [Guide](./GUIDE.md) shows application patterns. This file defines the
 shared package laws those patterns must preserve.
@@ -192,34 +194,51 @@ remain transparent JavaScript data.
 Transparent representation is not permission to bypass each owner's formation
 and boundary laws in typed application code.
 
-## 6. Phantom identity law
+## 6. Declaration compatibility law
 
-Named identity, evidence, and Variant families use Selaws-owned,
-package-copy-stable structural keys:
+Declaration-owned identity is the default for Identity, Evidence, and Variant.
+A caller-owned narrow symbol determines local declaration identity.
 
 ```text
-~selaws.identity:<Name>
-~selaws.evidence:<Name>
-~selaws.variant:<Name>
+same symbol token       => compatible local declaration identity
+different symbol tokens => distinct local declaration identity
+symbol description text => non-semantic
 ```
 
-A concrete string name therefore defines a shared structural identity contract.
+Intentional structural interoperability is explicit:
 
-Declaration-owned identity, evidence, and Variant families use a caller-owned
-symbol as the phantom property key. The bound symbol determines declaration
-identity.
+```text
+identity.shared.*
+evidence.shared.*
+Variant.shared
+```
 
-The category payloads remain distinct. Reusing one symbol for independent
-owners does not make Identity imply Evidence or make either owner become
+Shared declarations use Selaws-owned package-copy-stable structural keys:
+
+```text
+~selaws.identity:<Contract>
+~selaws.evidence:<Contract>
+~selaws.variant:<Contract>
+```
+
+The contract string is an interoperability assertion, not a display name.
+Selaws does not prove that two independent producers using the same contract
+have equivalent external business semantics.
+
+Owner categories remain distinct. Reusing one local symbol or equal shared
+contract text does not make Identity imply Evidence or make either owner become
 Variant.
 
-Variant family markers additionally retain the closed case-name universe and
-case signatures needed for typed compatibility. Case-name universes are exact;
-payload positions retain ordinary TypeScript structural variance.
+Variant family markers additionally retain the exact closed case-name universe
+and case signatures needed for typed compatibility. Two shared Variant
+declarations with the same contract but different family signatures therefore
+remain incompatible.
 
-These encodings are compatibility law: duplicate compatible Selaws
-installations can agree on the same declared named meaning without sharing a
-package-local unique-symbol brand.
+Local factories require symbol tokens at runtime. Shared factories require
+string contracts. TypeScript additionally requires narrow symbols and concrete
+literal contracts.
+
+See [Declaration compatibility](./laws/declaration-compatibility.md).
 
 ## 7. Completion law
 

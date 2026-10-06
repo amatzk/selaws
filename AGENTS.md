@@ -26,6 +26,10 @@ and `VariantFamily.match`.
 
 - Keep each public operation at the owner whose meaning it introduces or
   transforms.
+- Local Identity, Evidence, and Variant declarations are symbol-owned by
+  default. Structural cross-package compatibility must be an explicit shared
+  contract through `identity.shared`, `evidence.shared`, or `Variant.shared`;
+  display-name coincidence is not semantic authority.
 - Scalar formation stays with Identity or Evidence; Variant owns formation for
   its declared alternatives.
 - Protocol owns relation membership, not current state, target selection,

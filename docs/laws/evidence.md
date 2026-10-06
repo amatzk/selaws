@@ -11,8 +11,11 @@ record that a separate predicate has been established without replacing the
 value's identity.
 
 ```ts
+const nonEmptyKey: unique symbol =
+  Symbol("NonEmpty");
+
 const NonEmpty = evidence.string(
-  "NonEmpty",
+  nonEmptyKey,
   (value) => value.length > 0,
 );
 
@@ -22,35 +25,34 @@ const checked = NonEmpty(userId);
 Evidence applies to immutable scalar carriers, so aliasing cannot mutate the
 underlying value after the fact is established.
 
-## Named evidence
+## Declaration-owned evidence
+
+Declaration ownership is the default.
 
 ```ts
-import { evidence } from "selaws/evidence";
+const nonEmptyKey: unique symbol =
+  Symbol("NonEmpty");
 
 const NonEmpty = evidence.string(
-  "NonEmpty",
+  nonEmptyKey,
   (value) => value.length > 0,
 );
 ```
 
-A concrete literal name maps to
-`~selaws.evidence:<Name>`. This Selaws-owned key keeps compatible producers
-and duplicate Selaws installations structurally compatible.
+The fact token is the phantom property key.
 
-Every Evidence factory has a predicate because evidence is introduced only
+```text
+same symbol token       => same local fact identity
+different symbol tokens => different local fact identities
+same Symbol description => no compatibility by itself
+```
+
+Every Evidence factory requires a predicate because evidence is introduced only
 after the fact is established.
 
-## Declaration-owned evidence
+For a custom establishment API, use `defineFact`:
 
 ```ts
-import {
-  defineFact,
-  type Evidence,
-} from "selaws/evidence";
-
-const nonEmptyKey: unique symbol =
-  Symbol("NonEmpty");
-
 type NonEmpty<T extends string> =
   Evidence<T, typeof nonEmptyKey>;
 
@@ -66,11 +68,32 @@ const NonEmpty = defineFact<string>()(
 );
 ```
 
-A non-empty finite set of narrow symbol fact keys represents accumulated
-declaration-owned evidence.
-
 `defineFact` keeps the establishment operation private to the declaration
 callback so the declaring module owns how the fact becomes available.
+
+## Explicit shared evidence
+
+Intentional structural fact compatibility is an explicit opt-in:
+
+```ts
+const NonEmpty =
+  evidence.shared.string(
+    "example.fact/NonEmpty@1",
+    (value) => value.length > 0,
+  );
+```
+
+The structural phantom key is:
+
+```text
+~selaws.evidence:<Contract>
+```
+
+Choosing the same shared contract asserts interoperability. Selaws does not
+compare two independent predicates and cannot establish that their business
+meaning is equivalent.
+
+See [Declaration compatibility](./declaration-compatibility.md).
 
 ## Composition
 
@@ -83,12 +106,12 @@ UserId
 + Ascii
 ```
 
-Identity and Evidence use distinct phantom categories. Reusing one symbol for
-both categories does not make identity imply evidence.
+Identity and Evidence use distinct phantom categories. Reusing one local symbol
+for both categories does not make identity imply evidence. Likewise, equal
+shared contract text in different categories does not merge those categories.
 
-`evidence.Proven<typeof Fact, Value>` expresses a named or declaration-owned
-fact on an existing compatible scalar type when inference alone is not
-sufficient.
+`evidence.Proven<typeof Fact, Value>` expresses a local or shared fact on an
+existing compatible scalar type when inference alone is not sufficient.
 
 ## Transformation
 
@@ -111,3 +134,6 @@ evidence is established again on that new value.
 Evidence does not claim mutable freshness, authorization, external provenance,
 or facts about aggregate objects. Those meanings remain with owners that can
 establish them.
+
+Local factories require a symbol token. Shared factories require a string
+contract. Predicates must be callable at declaration time.

@@ -5,6 +5,7 @@ import {
 import {
   define,
   payload,
+  shared,
   unit,
   type Variant,
   Variant as VariantFacade,
@@ -19,7 +20,8 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 type IsNever<T> = [T] extends [never] ? true : false;
 
-const Message = define("Message", [
+const messageKey: unique symbol = Symbol("Message");
+const Message = define(messageKey, [
   ["quit", unit],
   ["write", payload<string>()],
   ["move", payload<Readonly<{ x: number; y: number }>>()],
@@ -63,7 +65,8 @@ if (message.tag === "write") {
   void narrowedPayload;
 }
 
-const Impossible = define("Impossible", [["impossible", payload<never>()]]);
+const impossibleKey: unique symbol = Symbol("Impossible");
+const Impossible = define(impossibleKey, [["impossible", payload<never>()]]);
 type Impossible = Variant.Value<typeof Impossible>;
 // @ts-expect-error an honestly typed never payload has no constructor argument
 Impossible.make.impossible(undefined);
@@ -85,11 +88,13 @@ Message.make.quit(undefined);
 // @ts-expect-error payload cases require a payload even when it is undefined
 Message.make.explicitUndefined();
 
-const Door = define("Door", [
+const doorKey: unique symbol = Symbol("Door");
+const paymentKey: unique symbol = Symbol("Payment");
+const Door = define(doorKey, [
   ["open", unit],
   ["closed", unit],
 ]);
-const Payment = define("Payment", [
+const Payment = define(paymentKey, [
   ["open", unit],
   ["closed", unit],
 ]);
@@ -97,36 +102,36 @@ type Door = Variant<typeof Door>;
 type Payment = Variant<typeof Payment>;
 declare const door: Door;
 
-// @ts-expect-error same shape does not erase distinct named family identity
+// @ts-expect-error same shape does not erase distinct declaration-owned family identity
 const payment: Payment = door;
 void payment;
 
-const SharedA = define("Shared", [
+const sharedA = shared("example.variant/Shared@1", [
   ["left", payload<string>()],
   ["right", unit],
 ]);
-const SharedB = define("Shared", [
+const sharedB = shared("example.variant/Shared@1", [
   ["left", payload<string>()],
   ["right", unit],
 ]);
-type SharedA = Variant<typeof SharedA>;
-type SharedB = Variant<typeof SharedB>;
-declare const sharedA: SharedA;
-declare const sharedB: SharedB;
-const namedForward: SharedB = sharedA;
-const namedBackward: SharedA = sharedB;
-void namedForward;
-void namedBackward;
+type SharedA = Variant<typeof sharedA>;
+type SharedB = Variant<typeof sharedB>;
+declare const sharedValueA: SharedA;
+declare const sharedValueB: SharedB;
+const sharedForward: SharedB = sharedValueA;
+const sharedBackward: SharedA = sharedValueB;
+void sharedForward;
+void sharedBackward;
 
-const SharedExtended = define("Shared", [
+const sharedExtended = shared("example.variant/Shared@1", [
   ["left", payload<string>()],
   ["right", unit],
   ["extra", unit],
 ]);
-type SharedExtended = Variant<typeof SharedExtended>;
+type SharedExtended = Variant<typeof sharedExtended>;
 
-// @ts-expect-error a different closed case universe is a different snapshot
-const extendedFromOld: SharedExtended = sharedA;
+// @ts-expect-error a different closed case universe is a different shared contract snapshot
+const extendedFromOld: SharedExtended = sharedValueA;
 // @ts-expect-error snapshot identity is symmetric rather than width-subtyped
 const oldFromExtended: SharedA = {} as SharedExtended;
 void extendedFromOld;
@@ -152,7 +157,8 @@ type OtherStrict = Variant<typeof OtherStrict>;
 const otherStrict: OtherStrict = strictA;
 void otherStrict;
 
-const Empty = define("Empty", []);
+const emptyKey: unique symbol = Symbol("Empty");
+const Empty = define(emptyKey, []);
 type Empty = Variant<typeof Empty>;
 type _EmptyIsNever = Expect<IsNever<Empty>>;
 
@@ -161,7 +167,8 @@ interface AddPayload {
   readonly right: Expr;
 }
 
-const Expr = define("Expr", [
+const exprKey: unique symbol = Symbol("Expr");
+const Expr = define(exprKey, [
   ["lit", payload<number>()],
   ["add", payload<AddPayload>()],
 ]);
@@ -176,8 +183,9 @@ interface ConsPayload<T> {
   readonly tail: Variant.Value<ReturnType<typeof List<T>>>;
 }
 
+const listKey: unique symbol = Symbol("List");
 const List = <T>() =>
-  define("List", [
+  define(listKey, [
     ["nil", unit],
     ["cons", payload<ConsPayload<T>>()],
   ]);
@@ -189,8 +197,9 @@ const nil: List<number> = NumberList.make.nil();
 const cons: List<number> = NumberList.make.cons({ head: 1, tail: nil });
 void cons;
 
+const remoteKey: unique symbol = Symbol("Remote");
 const Remote = <T>() =>
-  define("Remote", [
+  define(remoteKey, [
     ["idle", unit],
     ["success", payload<T>()],
     ["failure", payload<Error>()],
@@ -201,59 +210,69 @@ const RemoteNumber = Remote<number>();
 const remoteNumber: Remote<number> = RemoteNumber.make.success(42);
 void remoteNumber;
 
-declare const broadName: string;
-// @ts-expect-error family names must be one literal name
-define(broadName, [["ready", unit]]);
-
-declare const nameUnion: "A" | "B";
-// @ts-expect-error family names cannot be a union
-define(nameUnion, [["ready", unit]]);
-
 declare const broadSymbol: symbol;
 // @ts-expect-error declaration-owned family tokens require one unique symbol
 define(broadSymbol, [["ready", unit]]);
 
+// @ts-expect-error local family declarations do not accept shared string contracts
+define("example.variant/Broad@1", [["ready", unit]]);
+
+declare const broadContract: string;
+// @ts-expect-error shared family contracts require one literal string
+shared(broadContract, [["ready", unit]]);
+
+declare const contractUnion: "A" | "B";
+// @ts-expect-error one shared family declaration cannot vary between contracts
+shared(contractUnion, [["ready", unit]]);
+
+declare const contractPattern: `variant:${string}`;
+// @ts-expect-error a pattern is not one shared family contract
+shared(contractPattern, [["ready", unit]]);
+
+// @ts-expect-error shared families do not accept symbol tokens
+shared(messageKey, [["ready", unit]]);
+
 declare const broadCases: readonly (readonly [string, typeof unit])[];
 // @ts-expect-error a broad-length declaration is not one finite closed case universe
-define("BroadCases", broadCases);
+define(messageKey, broadCases);
 
 declare const patternedName: `event:${string}`;
 // @ts-expect-error a template-pattern name is not one concrete runtime case
-define("PatternedCases", [[patternedName, unit]]);
+define(messageKey, [[patternedName, unit]]);
 
 declare const optionalCases: readonly [(readonly ["ready", typeof unit])?];
 // @ts-expect-error optional tuple positions do not declare one exact runtime case list
-define("OptionalCases", optionalCases);
+define(messageKey, optionalCases);
 
 const stringPayloadSpec = payload<string>();
 declare const mixedCaseKind: typeof unit | typeof stringPayloadSpec;
 // @ts-expect-error one case cannot vary between unit and payload runtime kinds
-define("MixedCaseKind", [["value", mixedCaseKind]]);
+define(messageKey, [["value", mixedCaseKind]]);
 
 declare const unionCaseList:
   | readonly [readonly ["left", typeof unit]]
   | readonly [readonly ["right", typeof unit]];
 // @ts-expect-error a union of declaration lists is not one exact case snapshot
-define("UnionCaseList", unionCaseList);
+define(messageKey, unionCaseList);
 
 const numberPayloadSpec = payload<number>();
 declare const payloadKindUnion: typeof stringPayloadSpec | typeof numberPayloadSpec;
-const PayloadKindUnion = define("PayloadKindUnion", [["value", payloadKindUnion]]);
+const PayloadKindUnion = define(messageKey, [["value", payloadKindUnion]]);
 PayloadKindUnion.make.value("text");
 PayloadKindUnion.make.value(1);
 
 // @ts-expect-error duplicate runtime case names are not one closed family
-define("DuplicateCases", [
+define(messageKey, [
   ["same", unit],
   ["same", payload<string>()],
 ]);
 
 // @ts-expect-error numeric case names are outside the string case grammar
-define("Numeric", [[1, unit]]);
+define(messageKey, [[1, unit]]);
 
 const symbolCase: unique symbol = Symbol("case");
 // @ts-expect-error symbol case names are outside the string case grammar
-define("SymbolCase", [[symbolCase, unit]]);
+define(messageKey, [[symbolCase, unit]]);
 
 const fullCaseList = [
   ["a", unit],
@@ -265,13 +284,14 @@ void narrowedCaseList;
 
 const mutableCaseEntry: ["a", typeof unit] = ["a", unit];
 // @ts-expect-error mutable case pairs can be widened and changed before definition
-define("MutableCaseEntry", [mutableCaseEntry]);
+define(messageKey, [mutableCaseEntry]);
 
 const mutableCaseList: [readonly ["a", typeof unit]] = [["a", unit]];
 // @ts-expect-error mutable outer tuples can be widened and changed before definition
-define("MutableCaseList", mutableCaseList);
+define(messageKey, mutableCaseList);
 
-const HostileNames = define("HostileNames", [
+const hostileNamesKey: unique symbol = Symbol("HostileNames");
+const HostileNames = define(hostileNamesKey, [
   ["__proto__", unit],
   ["constructor", unit],
   ["make", unit],
@@ -284,7 +304,8 @@ void hostileConstructor;
 void hostileMake;
 void hostileMatch;
 
-const rootMessage = RootVariant.define("RootMessage", [
+const rootMessageKey: unique symbol = Symbol("RootMessage");
+const rootMessage = RootVariant.define(rootMessageKey, [
   ["value", RootVariant.payload<number>()],
   ["empty", RootVariant.unit],
 ]);
@@ -292,7 +313,8 @@ type RootFacadeMessage = RootVariantValue<typeof rootMessage>;
 const rootFacadeValue: RootFacadeMessage = rootMessage.make.value(1);
 void rootFacadeValue;
 
-const facadeMessage = VariantFacade.define("FacadeMessage", [
+const facadeMessageKey: unique symbol = Symbol("FacadeMessage");
+const facadeMessage = VariantFacade.define(facadeMessageKey, [
   ["value", VariantFacade.payload<number>()],
   ["empty", VariantFacade.unit],
 ]);
@@ -300,7 +322,8 @@ type FacadeMessage = Variant<typeof facadeMessage>;
 const facadeValue: FacadeMessage = facadeMessage.make.value(1);
 void facadeValue;
 
-const OverloadedCase = define("OverloadedCase", [["value", payload<number>()]]);
+const overloadedCaseKey: unique symbol = Symbol("OverloadedCase");
+const OverloadedCase = define(overloadedCaseKey, [["value", payload<number>()]]);
 
 function overloadedCaseHandler(value: number): number;
 function overloadedCaseHandler(value: string): string;
