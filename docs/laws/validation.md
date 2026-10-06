@@ -57,8 +57,9 @@ key. Failure concatenates every issue collection in entry order while retaining
 internal order and duplicates.
 
 The typed grammar rejects directly mutable outer or inner tuples, duplicate
-keys, broad string/symbol key spaces, and broad-length or union declarations
-because those do not identify one exact stable keyed product. A readonly view
+keys, broad string/symbol key spaces, phantom-branded property-key distinctions,
+and broad-length or union declarations because those do not identify one exact
+stable keyed product. A readonly view
 over separately mutable backing data remains subject to the TypeScript trust
 model in [SEMANTICS.md](../SEMANTICS.md). Runtime JavaScript callers must supply one array of exact
 pairs, unique string/symbol keys, and structural Validation values with own
@@ -108,4 +109,4 @@ const ready =
 ```
 
 That conversion carries Invalid's complete non-empty issue collection as one
-Result issue value.
+Result error value.

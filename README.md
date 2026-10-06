@@ -171,8 +171,9 @@ persist state, or provide concurrency control.
 
 Typed Protocol declarations are exact finite relations: the outer relation is
 one finite readonly tuple and every `from`, `label`, and `to` member is one
-concrete scalar identity rather than a broad scalar type. This keeps `Next`
-and runtime `allows` tied to the same relation snapshot.
+concrete runtime scalar identity rather than a broad scalar type. Phantom
+brands on the same primitive are not additional Protocol identities. This keeps
+`Next` and runtime `allows` tied to the same relation snapshot.
 
 The relation may be nondeterministic: one `(from, label)` pair may admit more
 than one target.

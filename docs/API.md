@@ -250,9 +250,10 @@ const OrderProtocol =
 `Protocol.define` snapshots one exact finite relation of readonly
 `[from, label, to]` triples into an immutable membership relation. Typed
 declarations require a finite readonly outer tuple, readonly triples, and one
-concrete scalar identity in each source/label/target position. Broad-length
-arrays, relation unions, and broad scalar member types are outside the typed
-Protocol grammar. JavaScript callers still receive runtime shape/scalar
+concrete runtime scalar identity in each source/label/target position.
+Phantom brands on the same primitive do not create additional Protocol
+identities. Broad-length arrays, relation unions, and broad scalar member types
+are outside the typed Protocol grammar. JavaScript callers still receive runtime shape/scalar
 validation and concrete snapshot semantics.
 
 ### Static projections
@@ -343,9 +344,10 @@ family.match(value, handlers)
 
 `Variant.unit` declares a nullary case.
 `Variant.payload<T>()` declares a case carrying exactly one typed payload.
-Case names must be concrete string literals. The outer declaration tuple and
-each case-entry pair must be readonly. Duplicate names and broad-length or
-union declaration lists are outside the typed grammar.
+Case names must be concrete runtime string literals. A phantom brand does not
+create another runtime case-name key. The outer declaration tuple and each
+case-entry pair must be readonly. Duplicate names and broad-length or union
+declaration lists are outside the typed grammar.
 
 `Variant.Value<Family>` extracts the complete tagged value union. The
 top-level type `Variant<Family>` is the equivalent carrier type.
@@ -490,9 +492,10 @@ Operation groups:
 `Validation.all` preserves finite tuple positions. Typed input arrays must be
 readonly; broad readonly Validation arrays remain valid. `Validation.struct` accepts one
 finite readonly tuple of readonly `[key, Validation]` entries, preserves those
-string or symbol keys, and accumulates issues in entry order. Directly mutable
-outer or inner tuples, duplicate keys, broad keys, and broad-length declarations
-are outside the typed grammar. Readonly views over separately mutable aliases
+string or symbol keys, and accumulates issues in entry order. Phantom brands
+do not create additional runtime property keys. Directly mutable outer or inner
+tuples, duplicate keys, broad keys, and broad-length declarations are outside
+the typed grammar. Readonly views over separately mutable aliases
 remain subject to the package TypeScript trust model.
 
 `Validation.fromResult` turns one Err value into one Validation issue even

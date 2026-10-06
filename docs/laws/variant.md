@@ -36,8 +36,10 @@ the family.
 The outer tuple and every case-entry pair must be readonly, its length must be
 statically concrete, and every case name must be one concrete string literal.
 Mutable tuples, broad arrays, optional/union entry sets, duplicate names, and
-patterned/broad string names do not define one exact closed family. Empty
-declarations are valid and produce an uninhabited Variant value type.
+patterned/broad string names do not define one exact closed family. A phantom
+brand on a string also does not create another runtime case-name key, so
+phantom-branded string intersections are outside this declaration grammar.
+Empty declarations are valid and produce an uninhabited Variant value type.
 
 Declaration order carries no meaning.
 

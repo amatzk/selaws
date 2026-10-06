@@ -34,8 +34,15 @@ The outer declaration must be one finite readonly tuple. Every transition must
 be one readonly length-three tuple, and each `from`, `label`, and `to`
 member must denote one concrete scalar identity.
 
-Accepted member identities include literal strings, numbers, bigints,
-booleans, and unique symbols.
+Accepted member identities include runtime-distinct literal strings, numbers,
+bigints, booleans, enum members, and unique symbols.
+
+A phantom brand on a primitive does not create another runtime scalar identity.
+For example, two differently branded values whose runtime carrier is the same
+string would compare equal in Protocol's SameValueZero relation. Such
+phantom-only distinctions are therefore outside the exact Protocol declaration
+grammar; use runtime-distinct literals or symbols for state and label
+identifiers.
 
 Broad or alternative scalar spaces do not denote one concrete relation member:
 

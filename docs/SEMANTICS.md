@@ -357,6 +357,16 @@ runtime checks do not establish a `Variant.payload<User>()` object schema,
 authorization, persisted freshness, external provenance, or application
 normalization merely because a static type mentions those concepts.
 
+A phantom distinction does not create another runtime declaration identity.
+When a Selaws declaration law depends on exact runtime equality of a state,
+label, case name, or object key, the declaration uses the runtime-distinct
+scalar or property-key identity itself. A phantom-branded primitive intersection
+such as an Identity or Evidence value still erases to the same primitive, so it
+cannot stand for a second exact Protocol member, Variant case name, or
+`Validation.struct` key. Those typed declaration boundaries reject such
+phantom-only key distinctions rather than claiming runtime equality can preserve
+them.
+
 Selaws expresses semantic guarantees for values whose runtime state is still
 described by their ordinary TypeScript type. Formation APIs centralize honest
 introduction of phantom meaning. Assertions, `any`, and TypeScript's unsound mutable aliasing can break that
