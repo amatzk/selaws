@@ -69,8 +69,9 @@ npm install selaws
 ```
 
 Selaws is ESM, emits ES2022 JavaScript, has zero runtime dependencies, and
-supports TypeScript 6 and 7. The repository uses a pinned TypeScript 7
-development compiler; the public type surface is also verified with TypeScript 6.
+supports TypeScript 6 and 7. Package verification compiles the installed public
+surface with TypeScript 6.0.3 and the repository's pinned TypeScript 7 compiler,
+with `exactOptionalPropertyTypes` both disabled and enabled.
 
 ## Give scalar values domain identity
 

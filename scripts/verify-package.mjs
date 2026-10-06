@@ -17,12 +17,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tarball = join(root, ".pack", "selaws.tgz");
 const consumer = mkdtempSync(join(tmpdir(), "selaws-package-"));
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-const typescriptVersion = packageJson.devDependencies?.typescript;
+const developmentTypeScriptVersion = packageJson.devDependencies?.typescript;
+const compatibilityTypeScriptVersions = ["6.0.3", developmentTypeScriptVersion];
 
 assert.equal(
-  typeof typescriptVersion === "string" && /^7\./u.test(typescriptVersion),
+  typeof developmentTypeScriptVersion === "string" &&
+    /^7\./u.test(developmentTypeScriptVersion),
   true,
-  "package verification requires the pinned TypeScript 7 toolchain",
+  "package verification requires the pinned TypeScript 7 development compiler",
 );
 
 const run = (command, args) => {
@@ -55,7 +57,7 @@ try {
     ),
   );
 
-  run("pnpm", ["add", "--ignore-scripts", tarball, `typescript@${typescriptVersion}`]);
+  run("pnpm", ["add", "--ignore-scripts", tarball]);
 
   const installedRoot = join(consumer, "node_modules", "selaws");
   const copiedRoot = join(consumer, "node_modules", "selaws-copy");
@@ -85,6 +87,20 @@ try {
           target: "ES2022",
         },
         include: ["index.ts"],
+      },
+      null,
+      2,
+    ),
+  );
+
+  writeFileSync(
+    join(consumer, "tsconfig.exact.json"),
+    JSON.stringify(
+      {
+        extends: "./tsconfig.json",
+        compilerOptions: {
+          exactOptionalPropertyTypes: true,
+        },
       },
       null,
       2,
@@ -1247,7 +1263,14 @@ assert.strictEqual(
 `,
   );
 
-  run(process.execPath, ["node_modules/typescript/bin/tsc", "-p", "tsconfig.json"]);
+  for (const version of compatibilityTypeScriptVersions) {
+    assert.equal(typeof version, "string");
+
+    for (const config of ["tsconfig.json", "tsconfig.exact.json"]) {
+      run("pnpm", [`--package=typescript@${version}`, "dlx", "tsc", "-p", config]);
+    }
+  }
+
   run(process.execPath, ["runtime.mjs"]);
 
   const installedPackage = JSON.parse(
@@ -1368,7 +1391,11 @@ assert.strictEqual(
 
   visitMaps(distDir);
 
-  console.log("selaws package verification passed");
+  console.log(
+    `selaws package verification passed (TypeScript ${compatibilityTypeScriptVersions.join(
+      ", ",
+    )})`,
+  );
 } finally {
   rmSync(consumer, { force: true, recursive: true });
 }
