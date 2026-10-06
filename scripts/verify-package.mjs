@@ -798,6 +798,8 @@ import { map } from "selaws";
 import { Match as RootMatch } from "selaws";
 // @ts-expect-error Match is a shared law, not a package subpath
 import type { Match as MatchSubpath } from "selaws/match";
+// @ts-expect-error internal Result modules are not public package subpaths
+import type { Result as ResultCoreSubpath } from "selaws/result/core";
 // @ts-expect-error generic Protocol helpers stay on the focused owner surface
 import type { Next as RootProtocolNext } from "selaws";
 
@@ -858,6 +860,7 @@ void validationBackward;
 void map;
 void RootMatch;
 void (null as unknown as MatchSubpath);
+void (null as unknown as ResultCoreSubpath);
 `,
   );
 
@@ -957,6 +960,44 @@ for (const [specifier, expected] of expectedFocusedSurfaces) {
   assert.deepEqual(Object.keys(module).sort(), expected);
 }
 
+const expectedFacadeSurfaces = new Map([
+  [identity, ["bigint", "boolean", "define", "number", "shared", "string", "symbol"]],
+  [evidence, ["bigint", "boolean", "define", "number", "shared", "string", "symbol"]],
+  [Protocol, ["define"]],
+  [Variant, ["define", "payload", "shared", "unit"]],
+  [
+    Option,
+    expectedFocusedSurfaces
+      .get("selaws/option")
+      .filter((name) => name !== "Option"),
+  ],
+  [
+    Validation,
+    expectedFocusedSurfaces
+      .get("selaws/validation")
+      .filter((name) => name !== "Validation"),
+  ],
+  [
+    Result,
+    expectedFocusedSurfaces
+      .get("selaws/result")
+      .filter((name) => name !== "Result"),
+  ],
+]);
+
+for (const [facade, expected] of expectedFacadeSurfaces) {
+  assert.deepEqual(Object.keys(facade).sort(), [...expected].sort());
+}
+
+assert.deepEqual(
+  Object.keys(identity.shared).sort(),
+  ["bigint", "boolean", "number", "string", "symbol"],
+);
+assert.deepEqual(
+  Object.keys(evidence.shared).sort(),
+  ["bigint", "boolean", "number", "string", "symbol"],
+);
+
 assert.strictEqual(root.identity, identity);
 assert.strictEqual(root.evidence, evidence);
 assert.strictEqual(root.Option, Option);
@@ -966,13 +1007,6 @@ assert.equal(Object.hasOwn(Variant, "Case"), false);
 assert.strictEqual(Variant.unit, VariantCopy.unit);
 assert.strictEqual(Variant.payload(), VariantCopy.payload());
 assert.strictEqual(root.Result, Result);
-assert.deepEqual(
-  Object.keys(Result).sort(),
-  expectedFocusedSurfaces
-    .get("selaws/result")
-    .filter((name) => name !== "Result")
-    .sort(),
-);
 assert.strictEqual(root.Validation, Validation);
 
 assert.throws(
@@ -1260,6 +1294,18 @@ assert.strictEqual(
   }),
   installedMatchPromise,
 );
+
+for (const internalSpecifier of [
+  "selaws/result/core",
+  "selaws/internal/scalar",
+  "selaws/match",
+]) {
+  await assert.rejects(
+    import(internalSpecifier),
+    (error) => error?.code === "ERR_PACKAGE_PATH_NOT_EXPORTED",
+    internalSpecifier,
+  );
+}
 `,
   );
 
