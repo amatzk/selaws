@@ -76,58 +76,72 @@ test("shared Match law selects one handler without supplying a receiver", () => 
   assert.equal(receiver, undefined);
 });
 
-test("selected handler resolution remains owner-defined and abrupt", () => {
-  for (const [name, invoke, selectedKey, otherKey] of [
-    ["Option", (arms) => Option.match(Option.some(1), arms), "some", "none"],
-    ["Result", (arms) => Result.match(Result.ok(1), arms), "ok", "err"],
-    [
-      "Validation",
-      (arms) => Validation.match(Validation.valid(1), arms),
-      "valid",
-      "invalid",
-    ],
-  ]) {
-    const selectedError = new Error(`${name} selected handler lookup`);
-    let selectedReads = 0;
-    let unselectedReads = 0;
-    const arms = {};
+test("selected Match handlers must be own data functions", () => {
+  const Family = Variant.define(Symbol("MatchAccessorBoundary"), [
+    ["selected", Variant.payload()],
+  ]);
 
-    Object.defineProperty(arms, selectedKey, {
-      get() {
-        selectedReads += 1;
-        throw selectedError;
-      },
+  for (const [name, invoke, selectedKey] of [
+    ["Option", (arms) => Option.match(Option.some(1), arms), "some"],
+    ["Result", (arms) => Result.match(Result.ok(1), arms), "ok"],
+    ["Validation", (arms) => Validation.match(Validation.valid(1), arms), "valid"],
+    ["Variant", (arms) => Family.match(Family.make.selected(1), arms), "selected"],
+  ]) {
+    const inherited = Object.create({
+      [selectedKey]: () => "inherited",
     });
-    Object.defineProperty(arms, otherKey, {
+
+    assert.throws(
+      () => invoke(inherited),
+      /own data function/,
+      `${name} inherited handler`,
+    );
+
+    let getterCalls = 0;
+    const accessor = {};
+    Object.defineProperty(accessor, selectedKey, {
       get() {
-        unselectedReads += 1;
-        throw new Error(`${name} read an unselected handler`);
+        getterCalls += 1;
+        return () => "accessor";
       },
     });
 
     assert.throws(
-      () => invoke(arms),
-      (error) => error === selectedError,
+      () => invoke(accessor),
+      /own data function/,
+      `${name} accessor handler`,
     );
-    assert.equal(selectedReads, 1, name);
-    assert.equal(unselectedReads, 0, name);
+    assert.equal(getterCalls, 0, name);
   }
+});
 
-  const Family = Variant.define(Symbol("MatchAccessorBoundary"), [
-    ["selected", Variant.payload()],
-  ]);
-  let selectedGetterCalls = 0;
-  const handlers = {};
-
-  Object.defineProperty(handlers, "selected", {
-    get() {
-      selectedGetterCalls += 1;
-      return (value) => value;
+test("selected handler descriptor lookup preserves native Proxy abrupt completion", () => {
+  const marker = new Error("descriptor trap");
+  let gets = 0;
+  let enumerations = 0;
+  const handlers = new Proxy(
+    {},
+    {
+      getOwnPropertyDescriptor() {
+        throw marker;
+      },
+      get() {
+        gets += 1;
+        throw new Error("ordinary property get was used");
+      },
+      ownKeys() {
+        enumerations += 1;
+        throw new Error("handler carrier was enumerated");
+      },
     },
-  });
+  );
 
-  assert.throws(() => Family.match(Family.make.selected(1), handlers), /own function/);
-  assert.equal(selectedGetterCalls, 0);
+  assert.throws(
+    () => Option.match(Option.some(1), handlers),
+    (error) => error === marker,
+  );
+  assert.equal(gets, 0);
+  assert.equal(enumerations, 0);
 });
 
 test("shared Match law preserves owner-defined branch payload and arity", () => {

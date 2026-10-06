@@ -1,4 +1,5 @@
 import type { CallbackResult } from "./internal/callback.js";
+import { ownMatchHandler } from "./internal/match.js";
 import { assertNotPromiseLike, type NotPromiseLike } from "./internal/promise-like.js";
 
 /** A present Option value. */
@@ -59,11 +60,11 @@ export const match = <
   }>,
 ): CallbackResult<Some> | CallbackResult<None> => {
   if (option.some) {
-    const selected = arms.some;
+    const selected = ownMatchHandler<Some>(arms, "some");
     return selected(option.value) as CallbackResult<Some>;
   }
 
-  const selected = arms.none;
+  const selected = ownMatchHandler<None>(arms, "none");
   return selected() as CallbackResult<None>;
 };
 

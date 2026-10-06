@@ -132,8 +132,10 @@ that universe even when the current value is already narrowed.
 For the selected branch, Match:
 
 ```text
+resolves the selected handler only as an own data-function property
 invokes exactly one handler exactly once
-does not read or invoke unselected handler properties
+does not read, enumerate, or invoke unselected handler properties
+does not consult selected accessors or prototypes
 preserves the owner-defined branch payload and arity
 supplies no library-defined this receiver
 returns the selected handler completion unchanged
@@ -142,7 +144,8 @@ returns the selected handler completion unchanged
 Therefore a returned Promise remains a native Promise and a thrown handler
 remains abrupt. Match does not capture, await, wrap, or normalize completion.
 
-Runtime validation beyond those shared elimination laws remains owner-specific.
+Selected own-data handler resolution is shared runtime Match law. Runtime
+validation beyond that shared elimination boundary remains owner-specific.
 Variant can validate its runtime family representation because Variant owns a
 runtime case declaration. Fixed structural owners retain their own typed
 boundaries.
@@ -318,6 +321,17 @@ Snapshotting the declaration does not freeze application payloads, application
 state, or external storage.
 
 ## 11. TypeScript trust model
+
+Selaws validates runtime-observable declaration grammar that belongs to Selaws.
+That includes local/shared declaration token kind, concrete Protocol runtime
+scalar entries, Variant declaration entry shape and duplicate-name/case-marker
+identity, `Validation.struct` entry/key grammar, and the selected Match
+handler's own-data-callable boundary.
+
+Selaws does not reify application meaning erased by TypeScript. In particular,
+runtime checks do not establish a `Variant.payload<User>()` object schema,
+authorization, persisted freshness, external provenance, or application
+normalization merely because a static type mentions those concepts.
 
 Selaws expresses semantic guarantees for values whose runtime state is still
 described by their ordinary TypeScript type. Formation APIs centralize honest

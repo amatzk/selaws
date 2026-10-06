@@ -1,4 +1,5 @@
 import type { CallbackResult } from "./internal/callback.js";
+import { ownMatchHandler } from "./internal/match.js";
 import type { SingleName, SingleSymbol, Token } from "./internal/scalar.js";
 
 type UnitSpec = symbol & {
@@ -296,17 +297,10 @@ const createFamily = <TokenValue extends Token, Entries extends readonly CaseEnt
         throw new TypeError("Variant value has an undeclared case tag.");
       }
 
-      const descriptor = Object.getOwnPropertyDescriptor(handlers, tag);
-      const handler =
-        descriptor !== undefined && Object.hasOwn(descriptor, "value")
-          ? descriptor.value
-          : undefined;
-
-      if (typeof handler !== "function") {
-        throw new TypeError(
-          "Variant match handlers must provide an own function for every declared case.",
-        );
-      }
+      const handler = ownMatchHandler<(this: void, value?: unknown) => unknown>(
+        handlers,
+        tag,
+      );
 
       if (kind === "unit") {
         return handler() as MatchResult<CaseSpecsFromEntries<Entries>, Handlers>;

@@ -87,10 +87,11 @@ Validation.match
 VariantFamily.match
 ```
 
-All four require typed total handling of the owner's branches, invoke exactly
-one selected handler without a library-defined `this` receiver, leave
-unselected handlers untouched, and preserve the selected handler's ordinary
-return, throw, or Promise completion.
+All four require typed total handling of the owner's branches. The selected
+handler must be an own data-function property; Match does not consult selected
+accessors or prototypes and does not read unselected handlers. The selected
+function is invoked once without a library-defined `this` receiver and keeps
+ordinary return, throw, or Promise completion.
 
 The owner remains responsible for branch meaning and any extra runtime
 validation. Variant therefore retains family-specific runtime representation
@@ -363,7 +364,7 @@ const length = Message.match(value, {
 Typed `match` requires handlers for the complete family. At runtime, the
 Variant value must carry its tag as an own data property; payload cases must
 also carry their payload as an own data `value` property. The selected tag must
-belong to the declaration, and the selected handler must be an own function
+belong to the declaration, and the selected handler must be an own data-function
 property.
 
 `Variant.define` requires a declaration-owned narrow symbol token.

@@ -58,9 +58,9 @@ Some passes its present value to the selected handler. None is nullary and
 passes zero arguments.
 
 Option owns the presence/absence meaning. Match owns the shared elimination
-behavior: exactly one selected receiver-neutral callback runs, unselected
-handlers are untouched, and the selected callback's ordinary JavaScript
-completion is preserved.
+behavior: the selected branch must be an own data-function property, exactly
+one receiver-neutral callback runs, unselected handlers are untouched, and the
+selected callback's ordinary JavaScript completion is preserved.
 
 ## Composition
 

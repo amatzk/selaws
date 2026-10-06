@@ -52,9 +52,10 @@ Result's Match branch universe is exactly Ok and Err.
 elimination requires both branches even when the input is narrowed. Ok passes
 the success value; Err passes the recoverable error value.
 
-Result owns recoverable success/failure meaning. Match owns the shared
-elimination behavior and does not capture a handler throw, await a handler
-Promise, or provide the handler object as `this`.
+Result owns recoverable success/failure meaning. Match requires the selected
+branch to be an own data-function property, does not consult accessors or
+prototypes, and does not capture a handler throw, await a handler Promise, or
+provide the handler object as `this`.
 
 ## Target-owned conversions
 

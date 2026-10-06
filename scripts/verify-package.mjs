@@ -1077,6 +1077,72 @@ assert.equal(
 assert.equal(variantReceiver, undefined);
 assert.equal(variantUnselectedReads, 0);
 
+for (const [name, invoke, selectedKey] of [
+  ["Option", (arms) => Option.match(Option.some(1), arms), "some"],
+  ["Result", (arms) => Result.match(Result.ok(1), arms), "ok"],
+  [
+    "Validation",
+    (arms) => Validation.match(Validation.valid(1), arms),
+    "valid",
+  ],
+  [
+    "Variant",
+    (arms) =>
+      installedMatchVariant.match(
+        installedMatchVariant.make.selected(1),
+        arms,
+      ),
+    "selected",
+  ],
+]) {
+  const inherited = Object.create({
+    [selectedKey]: () => "inherited",
+  });
+  assert.throws(
+    () => invoke(inherited),
+    /own data function/,
+    "inherited selected handler",
+  );
+
+  let getterCalls = 0;
+  const accessor = {};
+  Object.defineProperty(accessor, selectedKey, {
+    get() {
+      getterCalls += 1;
+      return () => "accessor";
+    },
+  });
+  assert.throws(
+    () => invoke(accessor),
+    /own data function/,
+    "accessor selected handler",
+  );
+  assert.equal(getterCalls, 0);
+}
+
+const protoMatchKey = Symbol("ProtoMatch");
+const ProtoMatch = Variant.define(protoMatchKey, [
+  ["__proto__", Variant.unit],
+  ["ready", Variant.unit],
+]);
+const makeProto = Reflect.get(ProtoMatch.make, "__proto__");
+const plainProtoHandlers = {
+  __proto__: () => "prototype-setter",
+  ready: () => "ready",
+};
+assert.equal(Object.hasOwn(plainProtoHandlers, "__proto__"), false);
+assert.throws(
+  () => ProtoMatch.match(makeProto(), plainProtoHandlers),
+  /own data function/,
+);
+assert.equal(
+  ProtoMatch.match(makeProto(), {
+    ["__proto__"]: () => "computed",
+    ready: () => "ready",
+  }),
+  "computed",
+);
+
 const installedMatchPromise = Promise.resolve("native");
 assert.strictEqual(
   Option.match(Option.some(1), {

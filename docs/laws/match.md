@@ -15,8 +15,8 @@ Match is not an eighth semantic owner. The owning carrier still defines which
 branches exist, what each branch means, and which payload belongs to each
 branch.
 
-There is no root `Match` value, `Match` type, or `selaws/match` entry point.
-The public realizations stay on their owners:
+There is no root `Match` value, type, dispatcher, or `selaws/match` entry
+point. Public realization stays on the owner:
 
 ```text
 Option.match
@@ -27,16 +27,14 @@ VariantFamily.match
 
 ## 1. Owner-defined branch universe
 
-For one owner with finite branch universe `B` and branch payload assignment
-`P`, Match eliminates one value from:
+For one owner with branch universe `B` and payload assignment `P`, Match
+eliminates one value from:
 
 ```text
 sum over b in B of P(b)
 ```
 
-through one handler per branch.
-
-The owner supplies `B` and `P`.
+through owner-defined branches.
 
 Match does not reinterpret Option as Result, Result as Validation, or one
 Variant family as another. Runtime structural similarity does not identify the
@@ -47,75 +45,114 @@ semantic owner.
 A typed Match call provides a handler for every branch in the owning semantic
 universe.
 
-This requirement is determined by the owner, not by the current narrowing of
-the input value.
-
-Examples:
+The obligation comes from the owner rather than the current narrowing of the
+input value.
 
 ```text
-Option      requires Some and None
-Result      requires Ok and Err
-Validation  requires Valid and Invalid
-Variant     requires every case in the declared family
+Option      Some and None
+Result      Ok and Err
+Validation  Valid and Invalid
+Variant     every declared family case
 ```
 
-A narrowed Some, Ok, Valid, or Variant case does not reduce the family-level
-handler obligation.
+A narrowed Some, Ok, Valid, or Variant case does not reduce this obligation.
 
-## 3. Unique selection
+## 3. Selected own-data handler
 
 The owning carrier determines exactly one selected branch.
 
-Match resolves only that branch's handler according to the owner's handler
-boundary. Unselected handler properties are not read or invoked by Selaws
-Match execution.
+Match resolves exactly one property: the selected branch key. The selected
+handler must be an **own data property whose value is callable**.
 
-When selected-handler resolution completes with a callable handler, that
-handler is invoked exactly once. Any abrupt completion while resolving the
-selected handler remains ordinary JavaScript abrupt completion.
+Resolution uses the equivalent of:
 
-## 4. Payload correlation and arity
-
-The selected handler receives exactly the payload owned by the selected branch.
-
-Nullary branches receive zero arguments.
-
-Examples:
-
-```text
-Option Some       -> present value
-Option None       -> zero arguments
-
-Result Ok         -> success value
-Result Err        -> error value
-
-Validation Valid  -> valid value
-Validation Invalid-> complete non-empty issue collection
-
-Variant unit case -> zero arguments
-Variant payload   -> stored case payload
+```js
+Object.getOwnPropertyDescriptor(handlers, selectedKey)
 ```
 
-Match does not flatten, convert, accumulate, or otherwise reinterpret a branch
-payload.
+and accepts only a data descriptor containing a function value.
 
-## 5. Receiver neutrality
+Consequences:
 
-Selaws does not supply the handler object as a callback receiver.
+- inherited functions do not satisfy Match;
+- selected accessors do not satisfy Match and their getter is not executed;
+- unselected properties are not read, enumerated, or invoked;
+- Match does not walk the prototype chain;
+- Match does not enumerate the handler object merely to validate other keys.
 
-The selected handler is invoked as an ordinary callback without a
-library-defined `this` value. A function that carries its own explicit JavaScript
-binding, such as a bound function, retains that ordinary language behavior.
+A JavaScript Proxy may observe or throw from the single selected
+`getOwnPropertyDescriptor` operation. That is native meta-object behavior, not
+an additional Match communication channel.
 
-Receiver semantics are therefore not a hidden communication channel between a
-semantic owner and its Match handler. This rule governs callback invocation;
-it does not rewrite ordinary JavaScript property-access semantics used by an
-owner to resolve the selected handler.
+When selected resolution succeeds, the handler is invoked exactly once.
 
-## 6. Completion transparency
+## 4. `__proto__` is ordinary key identity
 
-After selected-handler resolution, the selected handler's completion is the
-Match completion.
+The string `"__proto__"` is not reserved by Match or Variant.
+
+The special case belongs to one JavaScript object-literal syntax:
+
+```js
+{
+  __proto__: handler
+}
+```
+
+That syntax changes the created object's prototype and does not create an own
+`"__proto__"` data property, so it does not satisfy Match.
+
+These forms do create own data-function properties:
+
+```js
+{
+  ["__proto__"]: handler
+}
+```
+
+```js
+{
+  __proto__() {
+    // ...
+  }
+}
+```
+
+Match has no `"__proto__"` runtime special case and never accepts an inherited
+prototype function as a handler.
+
+## 5. Payload correlation and arity
+
+The selected handler receives exactly the payload owned by the selected branch.
+Nullary branches receive zero arguments.
+
+```text
+Option Some        -> present value
+Option None        -> zero arguments
+
+Result Ok          -> success value
+Result Err         -> error value
+
+Validation Valid   -> valid value
+Validation Invalid -> complete non-empty issue collection
+
+Variant unit case  -> zero arguments
+Variant payload    -> stored case payload
+```
+
+Match does not flatten, convert, accumulate, or reinterpret branch payloads.
+
+## 6. Receiver neutrality
+
+Selaws does not supply the handler carrier as a callback receiver.
+
+The selected function is invoked as an ordinary callback without a
+library-defined `this` value. A function with its own explicit JavaScript
+binding, such as a bound function, keeps that native behavior.
+
+## 7. Completion transparency
+
+After successful selected-handler resolution, the selected handler's completion
+is the Match completion.
 
 ```text
 ordinary return -> ordinary Match return
@@ -126,38 +163,34 @@ Promise return  -> native Promise value remains native
 Match does not capture exceptions, await Promises, introduce asynchronous
 carriers, or normalize handler return values.
 
-The static Match result is a conservative union of the return types exposed by
-the participating handlers. Finite overloaded handlers therefore preserve
-their exposed return alternatives rather than collapsing to one overload.
+The static Match result remains a conservative union of participating handler
+return types. Finite overloaded handlers preserve their exposed alternatives.
+If TypeScript generic-callable reflection would cycle, Selaws may widen the
+affected callback result to `unknown` rather than impose an arbitrary overload
+count or exhaust compiler instantiation depth.
 
-TypeScript can reflect some generic callable signatures as the same instantiated
-signature repeatedly. When that reflection would cycle, Selaws widens the
-affected callback result to `unknown` instead of imposing an arbitrary overload
-count or exhausting compiler instantiation depth.
+## 8. Runtime boundary ownership
 
-## 7. Runtime boundary ownership
+The own-data selected-handler requirement is shared runtime Match law and is
+implemented consistently for Option, Result, Validation, and Variant.
 
-The shared Match law does not require one universal runtime validator.
+Additional runtime validation remains owner-specific.
 
-Fixed structural owners rely on their ordinary typed carrier boundary and
-ordinary JavaScript property lookup for the selected handler.
+Variant owns a runtime family declaration, so Variant additionally validates
+its tagged representation, declared case membership, and payload
+representation.
 
-Variant additionally owns runtime family checks because its family declaration
-exists at runtime. Variant Match therefore validates its own tagged
-representation, declared case membership, payload representation, and selected
-own handler availability.
+Fixed structural owners do not acquire Variant's family decoder merely because
+they share Match handler resolution.
 
-Those Variant checks are owner-specific enforcement of Variant meaning, not
-additional shared Match meaning.
+## 9. Implementation sharing
 
-## 8. Implementation independence
+A shared law does not generally require one shared production abstraction.
 
-A shared law does not require one shared production helper.
-
-Each owner may keep a local implementation when that preserves clearer
-ownership, inference, and runtime boundaries. Shared conformance tests establish
-the cross-owner law.
+For selected-handler resolution, however, the runtime law is identical and a
+private shared helper reduces semantic drift without creating a public Match
+owner or dispatcher.
 
 A future Match-capable owner must define its branch universe and payload
-correlation, conform to this shared law, and keep any additional runtime
-validation with the owner that can establish it.
+correlation, conform to this selected-handler law, and keep any additional
+runtime validation with the owner that can establish it.

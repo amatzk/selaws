@@ -245,7 +245,7 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
       Family.match(Family.make.ready(), {
         value: () => 2,
       }),
-    /own function for every declared case/,
+    /own data function/,
   );
 
   const ConstructorCase = define(Symbol("ConstructorCase"), [
@@ -258,7 +258,7 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
       ConstructorCase.match(ConstructorCase.make.constructor(), {
         ready: () => 1,
       }),
-    /own function for every declared case/,
+    /own data function/,
   );
 
   const ProtoCase = define(Symbol("ProtoCase"), [
@@ -268,12 +268,34 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
 
   const protoCase = Reflect.get(ProtoCase.make, "__proto__");
 
+  const ordinaryProtoHandlers = {
+    __proto__: () => "prototype-setter",
+    ready: () => "ready",
+  };
+  assert.equal(Object.hasOwn(ordinaryProtoHandlers, "__proto__"), false);
+  assert.throws(
+    () => ProtoCase.match(protoCase(), ordinaryProtoHandlers),
+    /own data function/,
+  );
+
   assert.equal(
     ProtoCase.match(protoCase(), {
       ["__proto__"]: () => "proto",
       ready: () => "ready",
     }),
     "proto",
+  );
+
+  assert.equal(
+    ProtoCase.match(protoCase(), {
+      __proto__() {
+        return "method";
+      },
+      ready() {
+        return "ready";
+      },
+    }),
+    "method",
   );
 
   const inheritedValue = Object.getOwnPropertyDescriptor(Object.prototype, "value");
@@ -294,7 +316,10 @@ test("match rejects undeclared tags and incomplete JavaScript handler objects", 
       },
     });
     Object.defineProperty(handlers, "ready", handlerDescriptor);
-    assert.throws(() => Family.match(Family.make.ready(), handlers), /own function/);
+    assert.throws(
+      () => Family.match(Family.make.ready(), handlers),
+      /own data function/,
+    );
     assert.equal(inheritedCalls, 0);
   } finally {
     if (inheritedValue === undefined) {

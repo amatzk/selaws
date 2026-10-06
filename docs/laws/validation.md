@@ -76,8 +76,9 @@ passes its value. Invalid passes the complete non-empty issue collection as one
 handler payload; Match does not flatten or iterate that collection.
 
 Typed elimination requires both branches even when the input is narrowed. The
-selected handler is invoked once without a library-defined receiver, and its
-ordinary return, throw, or Promise completion is preserved.
+selected handler must be an own data-function property, is invoked once without
+a library-defined receiver, and preserves ordinary return, throw, or Promise
+completion.
 
 ## Mapping and observation
 

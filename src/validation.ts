@@ -1,4 +1,5 @@
 import type { CallbackResult } from "./internal/callback.js";
+import { ownMatchHandler } from "./internal/match.js";
 import { assertNotPromiseLike, type NotPromiseLike } from "./internal/promise-like.js";
 import type { SingleName, SingleSymbol } from "./internal/scalar.js";
 import type { Option } from "./option.js";
@@ -235,11 +236,11 @@ export const match = <
   }>,
 ): CallbackResult<ValidHandler> | CallbackResult<InvalidHandler> => {
   if (validation.valid) {
-    const selected = arms.valid;
+    const selected = ownMatchHandler<ValidHandler>(arms, "valid");
     return selected(validation.value) as CallbackResult<ValidHandler>;
   }
 
-  const selected = arms.invalid;
+  const selected = ownMatchHandler<InvalidHandler>(arms, "invalid");
   return selected(validation.errors) as CallbackResult<InvalidHandler>;
 };
 

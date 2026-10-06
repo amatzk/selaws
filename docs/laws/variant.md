@@ -152,7 +152,7 @@ const length = Message.match(
 );
 ```
 
-Exactly the selected own data-property handler runs once and without a
+Exactly the selected own data-function handler runs once and without a
 library-defined `this` receiver. Inherited properties and accessors do not
 satisfy handler availability. Unit handlers receive zero arguments. Payload
 handlers receive exactly the stored payload. Unselected handler properties are
@@ -162,7 +162,7 @@ At runtime, `match` requires the Variant tag to be an own data property.
 Payload cases also require an own data `value` property. Inherited properties
 and accessors therefore cannot supply either part of the Variant
 representation. `match` then validates that the selected tag belongs to the
-family and that the selected handler is an own function property. TypeScript
+family and that the selected handler is an own data-function property. TypeScript
 owns whole-handler exhaustiveness for honestly typed calls.
 
 Handler return and abrupt completion follow ordinary JavaScript semantics.

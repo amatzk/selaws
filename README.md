@@ -32,9 +32,9 @@ VariantFamily.match
 ```
 
 Each owning surface supplies the branch universe and payload meaning. Match
-requires total typed handling, invokes exactly one selected handler without a
-library-defined `this` receiver, and preserves ordinary return, throw, and
-Promise completion.
+requires total typed handling, resolves only an own data-function property for
+the selected branch, invokes it without a library-defined `this` receiver,
+and preserves ordinary return, throw, and Promise completion.
 
 ## Install
 

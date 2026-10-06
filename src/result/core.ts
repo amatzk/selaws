@@ -1,4 +1,5 @@
 import type { CallbackResult } from "../internal/callback.js";
+import { ownMatchHandler } from "../internal/match.js";
 import { assertNotPromiseLike, type NotPromiseLike } from "../internal/promise-like.js";
 import type { Option } from "../option.js";
 import type { Validation, ValidationIssues } from "../validation.js";
@@ -72,11 +73,11 @@ export const match = <
   }>,
 ): CallbackResult<OkHandler> | CallbackResult<ErrHandler> => {
   if (result.ok) {
-    const selected = arms.ok;
+    const selected = ownMatchHandler<OkHandler>(arms, "ok");
     return selected(result.value) as CallbackResult<OkHandler>;
   }
 
-  const selected = arms.err;
+  const selected = ownMatchHandler<ErrHandler>(arms, "err");
   return selected(result.error) as CallbackResult<ErrHandler>;
 };
 
