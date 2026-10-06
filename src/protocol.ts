@@ -1,4 +1,4 @@
-import type { Scalar } from "./internal/scalar.js";
+import type { IsUnion, Scalar, SingleScalar } from "./internal/scalar.js";
 
 /** Scalar identifiers used as Protocol states. */
 export type State = Scalar;
@@ -13,7 +13,42 @@ export type Transition<
   To extends State = State,
 > = readonly [from: From, label: Via, to: To];
 
-type TransitionUnion<Transitions extends readonly Transition[]> = Transitions[number];
+type IsMutableArray<Value> = Value extends unknown[] ? true : false;
+
+type InvalidTransitionEntry<Transitions extends readonly Transition[]> = {
+  [Index in keyof Transitions]: Transitions[Index] extends readonly [
+    infer From extends State,
+    infer Via extends Label,
+    infer To extends State,
+  ]
+    ? [SingleScalar<From>] extends [never]
+      ? Index
+      : [SingleScalar<Via>] extends [never]
+        ? Index
+        : [SingleScalar<To>] extends [never]
+          ? Index
+          : never
+    : Index;
+}[number];
+
+type ClosedTransitions<Transitions extends readonly Transition[]> =
+  true extends IsUnion<Transitions>
+    ? never
+    : true extends IsMutableArray<Transitions>
+      ? never
+      : true extends IsMutableArray<Transitions[number]>
+        ? never
+        : number extends Transitions["length"]
+          ? never
+          : [InvalidTransitionEntry<Transitions>] extends [never]
+            ? unknown
+            : never;
+
+type ExactTransitions<Transitions extends readonly Transition[]> =
+  ClosedTransitions<Transitions> extends never ? never : Transitions;
+
+type TransitionUnion<Transitions extends readonly Transition[]> =
+  ExactTransitions<Transitions>[number];
 
 type SourceOf<One> = One extends readonly [infer From extends State, Label, State]
   ? From
@@ -27,12 +62,12 @@ type TargetOf<One> = One extends readonly [State, Label, infer To extends State]
   ? To
   : never;
 
-/** All state identifiers that occur as a source or target. */
+/** All state identifiers that occur in one exact finite relation. */
 export type States<Transitions extends readonly Transition[]> =
   | SourceOf<TransitionUnion<Transitions>>
   | TargetOf<TransitionUnion<Transitions>>;
 
-/** All transition labels that occur in a declaration. */
+/** All transition labels that occur in one exact finite relation. */
 export type Labels<Transitions extends readonly Transition[]> = LabelOf<
   TransitionUnion<Transitions>
 >;
@@ -49,30 +84,24 @@ type NextFrom<One, From extends State, Via extends Label> = One extends readonly
       : To
   : never;
 
-/** The statically admissible targets for one source state and transition label. */
+/** The statically admissible targets in one exact finite relation. */
 export type Next<
   Transitions extends readonly Transition[],
   From extends States<Transitions>,
   Via extends Labels<Transitions>,
 > = NextFrom<TransitionUnion<Transitions>, From, Via>;
 
-type IsMutableArray<Value> = Value extends unknown[] ? true : false;
-
-type ClosedTransitions<Transitions extends readonly Transition[]> =
-  true extends IsMutableArray<Transitions>
+/** Runtime membership for one exact immutable labeled transition relation. */
+export type Protocol<Transitions extends readonly Transition[]> =
+  ClosedTransitions<Transitions> extends never
     ? never
-    : true extends IsMutableArray<Transitions[number]>
-      ? never
-      : Transitions;
-
-/** Runtime membership for one immutable labeled transition relation. */
-export type Protocol<Transitions extends readonly Transition[]> = Readonly<{
-  allows<
-    From extends States<Transitions>,
-    Via extends Labels<Transitions>,
-    To extends States<Transitions>,
-  >(from: From, label: Via, to: To): boolean;
-}>;
+    : Readonly<{
+        allows<
+          From extends States<Transitions>,
+          Via extends Labels<Transitions>,
+          To extends States<Transitions>,
+        >(from: From, label: Via, to: To): boolean;
+      }>;
 
 const isScalarIdentifier = (value: unknown): value is Scalar => {
   switch (typeof value) {
@@ -88,7 +117,7 @@ const isScalarIdentifier = (value: unknown): value is Scalar => {
 };
 
 /**
- * Defines one immutable admissible labeled transition relation.
+ * Defines one exact immutable admissible labeled transition relation.
  *
  * The runtime relation snapshots the supplied triples and uses SameValueZero
  * equality through Map and Set.
@@ -102,7 +131,6 @@ export const define = <const Transitions extends readonly Transition[]>(
   }
 
   const relation = new Map<State, Map<Label, Set<State>>>();
-
   const length = transitions.length;
 
   for (let index = 0; index < length; index += 1) {
@@ -161,14 +189,14 @@ export const define = <const Transitions extends readonly Transition[]>(
     >(from: From, label: Via, to: To): boolean {
       return relation.get(from)?.get(label)?.has(to) ?? false;
     },
-  });
+  }) as Protocol<Transitions>;
 };
 
 type ProtocolFacade = Readonly<{
   define: typeof define;
 }>;
 
-/** Admissible labeled transition relations. */
+/** Exact finite admissible labeled transition relations. */
 export const Protocol: ProtocolFacade = {
   define,
 };

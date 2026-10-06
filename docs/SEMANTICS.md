@@ -172,9 +172,10 @@ string | number | bigint | boolean | symbol
 Successful formation returns that same primitive representation.
 
 Protocol uses those JavaScript scalar kinds as application-owned state and
-label identifiers. `Protocol.define` snapshots readonly
-`[from, label, to]` declarations into a private membership relation. The
-runtime relation is not application state.
+label identifiers. A typed Protocol declaration is one exact finite readonly
+relation whose transition members are concrete scalar identities.
+`Protocol.define` snapshots that relation into private runtime membership.
+The runtime relation is not application state.
 
 Variant snapshots a finite case declaration into immutable family constructors
 and elimination behavior. Its values remain transparent tagged JavaScript
@@ -301,10 +302,13 @@ caller-provided declaration data.
 `Variant.define` snapshots case names and case kinds.
 
 Protocol and Variant typed declarations require readonly finite tuples and
-reject directly mutable declaration arrays. This prevents mutation through the
-declaration type itself. TypeScript can still create a readonly view over a
-separately mutable alias and mutate the same backing array before definition;
-that language-level unsound aliasing is governed by the trust model below.
+reject directly mutable declaration arrays. Protocol additionally requires one
+concrete scalar identity in every transition position; broad scalar spaces and
+unions do not denote one exact typed relation. This prevents static Protocol
+projections from becoming an upper approximation of a different concrete
+runtime snapshot. TypeScript can still create a readonly view over a separately
+mutable alias and mutate the same backing array before definition; that
+language-level unsound aliasing is governed by the trust model below.
 
 At runtime, both owners snapshot caller-provided declaration data. Later
 mutation of caller-owned JavaScript arrays does not change the already-defined

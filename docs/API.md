@@ -246,11 +246,13 @@ const OrderProtocol =
   Protocol.define(transitions);
 ```
 
-`Protocol.define` snapshots a readonly relation of readonly
+`Protocol.define` snapshots one exact finite relation of readonly
 `[from, label, to]` triples into an immutable membership relation. Typed
-declarations reject directly mutable outer arrays and triples. A readonly view
-over a separately mutable alias is still subject to the TypeScript trust model
-described in [SEMANTICS.md](./SEMANTICS.md).
+declarations require a finite readonly outer tuple, readonly triples, and one
+concrete scalar identity in each source/label/target position. Broad-length
+arrays, relation unions, and broad scalar member types are outside the typed
+Protocol grammar. JavaScript callers still receive runtime shape/scalar
+validation and concrete snapshot semantics.
 
 ### Static projections
 
@@ -270,9 +272,10 @@ type AfterPay =
 // "paid"
 ```
 
-`States` contains source and target identifiers that occur in the declaration.
-`Labels` contains declared labels. `Next` projects the targets statically
-admissible for a source/label pair.
+`States` contains source and target identifiers that occur in the exact
+relation. `Labels` contains its declared labels. `Next` projects exactly the
+targets in that same relation for a source/label pair. These projections do not
+treat a broad relation type as an upper approximation.
 
 ### Runtime membership
 

@@ -350,6 +350,36 @@ declare const packageMixedProtocolOuter:
 // @ts-expect-error every possible outer relation carrier must be readonly
 defineProtocol(packageMixedProtocolOuter);
 
+declare const packageBroadProtocol: readonly (
+  readonly ["pending", "pay", "paid"]
+)[];
+// @ts-expect-error a broad-length relation is not one exact finite Protocol
+defineProtocol(packageBroadProtocol);
+
+const packageBroadSource: readonly [readonly [string, "pay", "paid"]] = [
+  ["pending", "pay", "paid"],
+];
+// @ts-expect-error a broad source type is not one concrete scalar identity
+defineProtocol(packageBroadSource);
+
+const packageBroadLabel: readonly [readonly ["pending", string, "paid"]] = [
+  ["pending", "pay", "paid"],
+];
+// @ts-expect-error a broad label type is not one concrete scalar identity
+defineProtocol(packageBroadLabel);
+
+const packageBroadTarget: readonly [readonly ["pending", "pay", string]] = [
+  ["pending", "pay", "paid"],
+];
+// @ts-expect-error a broad target type is not one concrete scalar identity
+defineProtocol(packageBroadTarget);
+
+declare const packageProtocolUnion:
+  | readonly [readonly ["a", "go", "b"]]
+  | readonly [readonly ["c", "go", "d"]];
+// @ts-expect-error a union declaration is not one concrete relation snapshot
+defineProtocol(packageProtocolUnion);
+
 const PackageMessage = Variant.shared("example.variant/PackageMessage@1", [
   ["none", variantUnit],
   ["text", variantPayload<string>()],

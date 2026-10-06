@@ -32,6 +32,9 @@ and `VariantFamily.match`.
   display-name coincidence is not semantic authority.
 - Scalar formation stays with Identity or Evidence; Variant owns formation for
   its declared alternatives.
+- Protocol owns one exact finite typed relation: finite readonly declaration,
+  readonly triples, and concrete scalar members. Broad relation/member types do
+  not acquire exact Protocol meaning.
 - Protocol owns relation membership, not current state, target selection,
   dispatch, effects, persistence, freshness, or concurrency control.
 - Result capture and recoverable-to-abrupt conversion stay under Result;

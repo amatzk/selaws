@@ -142,6 +142,11 @@ Protocol owns the relation of admissible `[from, label, to]` triples. It does
 not own the current state, choose a target, dispatch an event, perform effects,
 persist state, or provide concurrency control.
 
+Typed Protocol declarations are exact finite relations: the outer relation is
+one finite readonly tuple and every `from`, `label`, and `to` member is one
+concrete scalar identity rather than a broad scalar type. This keeps `Next`
+and runtime `allows` tied to the same relation snapshot.
+
 The relation may be nondeterministic: one `(from, label)` pair may admit more
 than one target.
 

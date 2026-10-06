@@ -19,6 +19,7 @@ type Equal<Left, Right> =
     ? true
     : false;
 type Expect<T extends true> = T;
+type IsNever<T> = [T] extends [never] ? true : false;
 
 const orderTransitions = [
   ["pending", "pay", "paid"],
@@ -45,18 +46,65 @@ type _pendingDynamicNext = Expect<Equal<PendingDynamicNext, "paid" | "cancelled"
 const broadSourceTransitions: readonly [readonly [string, "pay", "paid"]] = [
   ["pending", "pay", "paid"],
 ];
-
-type _broadSourceNext = Expect<
-  Equal<Next<typeof broadSourceTransitions, "pending", "pay">, "paid">
+type _broadSourceHasNoProtocolStates = Expect<
+  IsNever<States<typeof broadSourceTransitions>>
 >;
+// @ts-expect-error a broad source does not define one exact relation
+define(broadSourceTransitions);
+// @ts-expect-error Next is defined only over an exact finite relation
+type _broadSourceNext = Next<typeof broadSourceTransitions, "pending", "pay">;
 
 const broadLabelTransitions: readonly [readonly ["pending", string, "paid"]] = [
   ["pending", "pay", "paid"],
 ];
+// @ts-expect-error a broad label does not define one exact relation
+define(broadLabelTransitions);
 
-type _broadLabelNext = Expect<
-  Equal<Next<typeof broadLabelTransitions, "pending", "pay">, "paid">
->;
+const broadTargetTransitions: readonly [readonly ["pending", "pay", string]] = [
+  ["pending", "pay", "paid"],
+];
+// @ts-expect-error a broad target does not define one exact relation
+define(broadTargetTransitions);
+
+declare const broadLengthTransitions: readonly (readonly ["pending", "pay", "paid"])[];
+// @ts-expect-error a broad-length relation is not one exact finite relation
+define(broadLengthTransitions);
+
+declare const unionRelation:
+  | readonly [readonly ["a", "go", "b"]]
+  | readonly [readonly ["c", "go", "d"]];
+// @ts-expect-error a union of relation declarations is not one concrete relation
+define(unionRelation);
+
+declare const broadState: string;
+// @ts-expect-error a broad scalar member is not one concrete state identity
+define([[broadState, "go", "done"]] as const);
+
+declare const broadNumber: number;
+// @ts-expect-error a broad numeric member is not one concrete scalar identity
+define([[broadNumber, "go", 1]] as const);
+
+declare const broadBoolean: boolean;
+// @ts-expect-error broad boolean is two possible runtime scalar identities
+define([["a", broadBoolean, "b"]] as const);
+
+declare const broadBigint: bigint;
+// @ts-expect-error broad bigint is not one concrete scalar identity
+define([[1n, "go", broadBigint]] as const);
+
+declare const broadProtocolSymbol: symbol;
+// @ts-expect-error broad symbol is not one concrete symbol identity
+define([[broadProtocolSymbol, "go", "done"]] as const);
+
+declare const patternState: `state:${string}`;
+// @ts-expect-error a patterned string space is not one concrete state identity
+define([[patternState, "go", "done"]] as const);
+
+declare const scalarBrand: unique symbol;
+type BrandedState = string & { readonly [scalarBrand]: true };
+declare const brandedState: BrandedState;
+// @ts-expect-error a branded broad string still denotes multiple runtime scalars
+define([[brandedState, "go", "done"]] as const);
 
 const nondeterministicTransitions = [
   ["open", "advance", "left"],
@@ -117,6 +165,29 @@ const cyclicTransitions = [
   ["b", "go", "a"],
 ] as const;
 const CyclicProtocol = define(cyclicTransitions);
+const numericTransitions = [[1, 2, 3]] as const;
+const NumericProtocol = define(numericTransitions);
+const numericMembership: boolean = NumericProtocol.allows(1, 2, 3);
+
+const bigintTransitions = [[1n, 2n, 3n]] as const;
+const BigintProtocol = define(bigintTransitions);
+const bigintMembership: boolean = BigintProtocol.allows(1n, 2n, 3n);
+
+const booleanTransitions = [[false, true, false]] as const;
+const BooleanProtocol = define(booleanTransitions);
+const booleanMembership: boolean = BooleanProtocol.allows(false, true, false);
+
+const sourceSymbol: unique symbol = Symbol("source");
+const labelSymbol: unique symbol = Symbol("label");
+const targetSymbol: unique symbol = Symbol("target");
+const symbolTransitions = [[sourceSymbol, labelSymbol, targetSymbol]] as const;
+const SymbolProtocol = define(symbolTransitions);
+const symbolMembership: boolean = SymbolProtocol.allows(
+  sourceSymbol,
+  labelSymbol,
+  targetSymbol,
+);
+
 declare let cyclicSource: "a" | "b";
 declare let cyclicTarget: "a" | "b";
 
@@ -124,18 +195,6 @@ if (!CyclicProtocol.allows(cyclicSource, "go", cyclicTarget)) {
   type _FalseBranchRemainsPossible = Expect<Equal<typeof cyclicTarget, "a" | "b">>;
   const stillPossible: _FalseBranchRemainsPossible = true;
   void stillPossible;
-}
-
-const broadTargetTransitions: readonly [readonly [string, "go", "done"]] = [
-  ["start", "go", "done"],
-];
-const BroadTargetProtocol = define(broadTargetTransitions);
-declare let broadTarget: string;
-
-if (BroadTargetProtocol.allows("start", "go", broadTarget)) {
-  type _BroadTargetRemainsString = Expect<Equal<typeof broadTarget, string>>;
-  const stillString: _BroadTargetRemainsString = true;
-  void stillString;
 }
 
 // @ts-expect-error "shipped" is not an admissible target for pending + pay
@@ -193,4 +252,8 @@ void labelType;
 void transitionType;
 void pendingPayMembership;
 void dynamicMembership;
+void numericMembership;
+void bigintMembership;
+void booleanMembership;
+void symbolMembership;
 void impossiblePendingPayTarget;

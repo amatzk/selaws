@@ -1,19 +1,19 @@
 # Protocol laws
 
-Protocol owns one admissible labeled transition relation over
+Protocol owns one exact finite admissible labeled transition relation over
 application-owned scalar state and label identifiers.
 
-For a declaration `R`:
+For a typed declaration `R`:
 
 ```text
 R subset State x Label x State
 ```
 
-`allows(from, label, to)` is true exactly when `(from, label, to)` is in that
-relation.
+`allows(from, label, to)` is true exactly when `(from, label, to)` belongs to
+that relation.
 
-Use Protocol when the application must state which labeled transitions are
-admissible without also introducing a state-machine runtime.
+Use Protocol when an application must declare admissible labeled transitions
+without introducing a state-machine runtime.
 
 ```ts
 const transitions = [
@@ -26,40 +26,63 @@ const OrderProtocol =
   Protocol.define(transitions);
 ```
 
-## 1. Application-owned identifiers
+## 1. Exact finite typed relation
+
+A typed Protocol declaration identifies one concrete relation snapshot.
+
+The outer declaration must be one finite readonly tuple. Every transition must
+be one readonly length-three tuple, and each `from`, `label`, and `to`
+member must denote one concrete scalar identity.
+
+Accepted member identities include literal strings, numbers, bigints,
+booleans, and unique symbols.
+
+Broad or alternative scalar spaces do not denote one concrete relation member:
+
+```text
+string
+number
+bigint
+boolean
+symbol
+"a" | "b"
+`state:${string}`
+branded broad scalar spaces
+```
+
+Broad-length arrays and unions of alternative relation tuples likewise do not
+declare one typed Protocol.
+
+This exactness keeps the static projections and runtime membership tied to the
+same declaration rather than treating the type as an upper approximation of a
+different runtime snapshot.
+
+Runtime JavaScript callers do not have TypeScript tuple exactness. They may
+supply ordinary arrays; Protocol validates the concrete runtime grammar and
+snapshots the values present at the call.
+
+## 2. Application-owned identifiers
 
 The application owns the meaning of state identifiers and transition labels.
 Protocol receives scalar identifiers and does not construct domain states,
 commands, events, or operations.
 
-A Protocol declaration therefore does not define a complete state universe.
-`States<Transitions>` contains states that occur in declared source or target
-positions. A state with no declared edge is outside that projection unless the
-application represents it elsewhere.
+A Protocol declaration does not define a complete state universe.
+`States<Transitions>` contains only source and target identifiers that occur
+in the exact relation.
 
-## 2. Label preservation
+## 3. Single static/runtime relation
 
-Labels are part of relation identity. Two declared transitions with the same
-source and target but different labels remain distinct transitions.
+For an exact declaration, the same `Transitions` determines:
 
-```ts
-Protocol.define([
-  ["ready", "retry", "ready"],
-  ["ready", "refresh", "ready"],
-] as const);
+```text
+States<Transitions>
+Labels<Transitions>
+Next<Transitions, From, Label>
+Protocol.define(Transitions).allows(...)
 ```
 
-`retry` and `refresh` remain separate even though their source and target are
-the same.
-
-## 3. Single relation
-
-The same readonly transition declaration determines both the TypeScript
-`Next<Transitions, From, Label>` projection and runtime
-`allows(from, label, to)` membership. The typed declaration requires a readonly outer relation and readonly
-transition triples, rejecting mutation through the declaration type itself.
-A readonly view over separately mutable backing data remains subject to the
-TypeScript trust model in [SEMANTICS.md](../SEMANTICS.md).
+`Next` projects exactly the targets declared for one source/label pair.
 
 ```ts
 type AfterPay =
@@ -69,42 +92,54 @@ type AfterPay =
     "pay"
   >;
 // "paid"
-
-OrderProtocol.allows(
-  "pending",
-  "pay",
-  "paid",
-);
-// true
 ```
 
-`Next` is the static target projection.
+`allows` tests concrete runtime membership and returns a boolean. It does not
+claim target-narrowing through a type predicate; a caller may pass union-valued
+state/label/target variables whose correlations TypeScript cannot preserve
+through a boolean call.
 
-`allows` returns the runtime membership boolean. It does not assert a
-target-narrowing type predicate because broad or union source and label values
-do not preserve the correlation required for that narrowing.
+## 4. Label preservation
 
-## 4. Snapshot stability
+Labels are part of relation identity. Equal source and target values do not
+collapse distinct labels.
 
-`Protocol.define` snapshots declaration values. Typed declarations use readonly
-arrays and readonly triples. Runtime JavaScript callers may still pass ordinary
-arrays; later mutation of those caller-owned arrays does not change the already
-defined runtime relation.
+```ts
+Protocol.define([
+  ["ready", "retry", "ready"],
+  ["ready", "refresh", "ready"],
+] as const);
+```
 
-## 5. Set semantics
+Both transitions remain distinct.
+
+## 5. Snapshot stability
+
+`Protocol.define` snapshots concrete declaration values. Later mutation of a
+caller-owned JavaScript array cannot change the already-defined relation.
+
+Typed declarations reject directly mutable outer arrays and inner triples.
+TypeScript assertions, `any`, or separately mutable aliases remain part of the
+package trust model rather than something erased static types can prove at
+runtime.
+
+## 6. Set semantics and equality
 
 Duplicate triples do not change admissibility. Declaration order is not
 semantic.
 
-## 6. Equality
-
 Runtime state and label identity follows JavaScript SameValueZero, matching
-`Map` and `Set` key semantics.
+`Map` and `Set` key semantics. JavaScript runtime declarations can therefore
+contain values such as `NaN`; TypeScript has no singleton `NaN` type, so such
+values do not form exact typed relation members.
+
+`-0` and `0` are not distinct Protocol identities because SameValueZero
+treats them as equal.
 
 ## 7. Relational semantics
 
-Protocol does not require determinism. The same `(from, label)` pair may admit
-multiple target states.
+Protocol does not require determinism. The same `(from, label)` pair may
+admit multiple targets.
 
 ```ts
 const Routing = Protocol.define([
@@ -113,20 +148,17 @@ const Routing = Protocol.define([
 ] as const);
 ```
 
-Both targets are admissible. Protocol does not choose one.
-
-Protocol also does not require totality. A source/label pair may have no
-declared target.
+Protocol also does not require totality. A source/label pair may have no target.
 
 ## 8. Execution independence
 
-Protocol describes admissibility. It does not choose a target, store current
-state, dispatch events, execute effects, schedule timers, persist state, retry,
-or orchestrate a workflow.
+Protocol describes admissibility only. It does not choose a target, store
+current state, dispatch events, execute effects, schedule timers, persist
+state, retry, or orchestrate a workflow.
 
 Variant may independently own an event vocabulary whose `tag` is used as a
-Protocol label. The Variant payload and the Protocol relation remain separate
-meanings.
+Protocol label. The Variant payload and Protocol relation retain separate
+meaning.
 
 ## 9. Freshness independence
 
@@ -141,12 +173,12 @@ if (
     "paid",
   )
 ) {
-  // A storage owner must still establish
-  // that observedState is current when writing.
+  // A storage owner must still establish freshness
+  // when applying a mutation.
 }
 ```
 
 Atomic mutation and concurrency checks remain application-owned.
 
-A labeled trace is protocol-valid exactly when every
+A labeled trace is Protocol-valid exactly when every consecutive
 `(state[i], label[i], state[i + 1])` triple is admissible.
