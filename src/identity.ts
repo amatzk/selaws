@@ -2,6 +2,7 @@ import {
   isBigint,
   isBoolean,
   isNumber,
+  isScalar,
   isString,
   isSymbol,
   type Scalar,
@@ -40,10 +41,21 @@ export function defineIdentity<T extends Scalar>() {
     token: Id & SingleSymbol<Id>,
     build: (mint: Mint<T, Id>) => Api,
   ): Api {
-    void token;
+    if (typeof token !== "symbol") {
+      throw new TypeError("Local identity declarations require a symbol token.");
+    }
 
-    const mint = <Value extends T>(value: Value): Identity<Value, Id> =>
-      value as Identity<Value, Id>;
+    if (typeof build !== "function") {
+      throw new TypeError("Identity declaration builders must be functions.");
+    }
+
+    const mint = <Value extends T>(value: Value): Identity<Value, Id> => {
+      if (!isScalar(value)) {
+        throw new TypeError("Identity formation values must be scalars.");
+      }
+
+      return value as Identity<Value, Id>;
+    };
 
     return build(mint);
   };
@@ -55,7 +67,7 @@ type SharedIdentity<T extends Scalar, Name extends string> = T & {
 
 type Predicate<T> = (value: T) => boolean;
 
-declare const identityDeclaration: unique symbol;
+type IdentityDeclarationProperty = "~selaws.identity.declaration";
 
 type LocalIdentityDeclaration<T extends Scalar, Key extends symbol> = Readonly<{
   kind: "local";
@@ -69,26 +81,34 @@ type SharedIdentityDeclaration<T extends Scalar, Name extends string> = Readonly
   name: Name;
 }>;
 
+type IdentityDeclarationOf<Domain> = IdentityDeclarationProperty extends keyof Domain
+  ? Domain extends {
+      readonly "~selaws.identity.declaration"?: infer Declaration;
+    }
+    ? Exclude<Declaration, undefined>
+    : never
+  : never;
+
 interface LocalOpenIdentity<T extends Scalar, Key extends symbol> {
-  readonly [identityDeclaration]: LocalIdentityDeclaration<T, Key>;
+  readonly "~selaws.identity.declaration"?: LocalIdentityDeclaration<T, Key>;
   <Value extends T>(value: Value): Identity<Value, Key>;
   (value: unknown): Identity<T, Key> | undefined;
 }
 
 interface LocalCheckedIdentity<T extends Scalar, Key extends symbol> {
-  readonly [identityDeclaration]: LocalIdentityDeclaration<T, Key>;
+  readonly "~selaws.identity.declaration"?: LocalIdentityDeclaration<T, Key>;
   <Value extends T>(value: Value): Identity<Value, Key> | undefined;
   (value: unknown): Identity<T, Key> | undefined;
 }
 
 interface SharedOpenIdentity<T extends Scalar, Name extends string> {
-  readonly [identityDeclaration]: SharedIdentityDeclaration<T, Name>;
+  readonly "~selaws.identity.declaration"?: SharedIdentityDeclaration<T, Name>;
   <Value extends T>(value: Value): SharedIdentity<Value, Name>;
   (value: unknown): SharedIdentity<T, Name> | undefined;
 }
 
 interface SharedCheckedIdentity<T extends Scalar, Name extends string> {
-  readonly [identityDeclaration]: SharedIdentityDeclaration<T, Name>;
+  readonly "~selaws.identity.declaration"?: SharedIdentityDeclaration<T, Name>;
   <Value extends T>(value: Value): SharedIdentity<Value, Name> | undefined;
   (value: unknown): SharedIdentity<T, Name> | undefined;
 }
@@ -191,13 +211,12 @@ export const identity: IdentityFacade = {
 
 export namespace identity {
   /** Extracts the scalar identity value type produced by an identity declaration. */
-  export type Value<Domain> = Domain extends {
-    readonly [identityDeclaration]: infer Declaration;
-  }
-    ? Declaration extends LocalIdentityDeclaration<infer T, infer Key>
-      ? Identity<T, Key>
-      : Declaration extends SharedIdentityDeclaration<infer T, infer Name>
-        ? SharedIdentity<T, Name>
-        : never
-    : never;
+  export type Value<Domain> =
+    IdentityDeclarationOf<Domain> extends infer Declaration
+      ? Declaration extends LocalIdentityDeclaration<infer T, infer Key>
+        ? Identity<T, Key>
+        : Declaration extends SharedIdentityDeclaration<infer T, infer Name>
+          ? SharedIdentity<T, Name>
+          : never
+      : never;
 }

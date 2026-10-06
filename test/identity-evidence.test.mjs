@@ -58,6 +58,7 @@ test("local facade domains form accepted values without wrappers", () => {
 
   assert.equal(RevisionId(42), 42);
   assert.equal(RevisionId("42"), undefined);
+  assert.equal(Object.hasOwn(RevisionId, "~selaws.identity.declaration"), false);
 });
 
 test("checked local facade domains return undefined when their predicate rejects", () => {
@@ -76,6 +77,7 @@ test("local facade facts preserve representation and reject failed evidence", ()
   assert.equal(NonEmpty("value"), "value");
   assert.equal(NonEmpty(""), undefined);
   assert.equal(NonEmpty(42), undefined);
+  assert.equal(Object.hasOwn(NonEmpty, "~selaws.evidence.declaration"), false);
 });
 
 test("shared facade contracts preserve transparent scalar representation", () => {
@@ -101,6 +103,55 @@ test("local and shared factories reject the wrong runtime token kinds", () => {
     () => evidence.shared.string(Symbol("NonEmpty"), () => true),
     /string contract/,
   );
+});
+
+test("low-level declarations validate runtime grammar before callbacks", () => {
+  let identityBuilds = 0;
+  let evidenceBuilds = 0;
+
+  assert.throws(
+    () =>
+      defineIdentity()("not-a-symbol", () => {
+        identityBuilds += 1;
+        return {};
+      }),
+    /symbol token/,
+  );
+  assert.equal(identityBuilds, 0);
+
+  assert.throws(
+    () =>
+      defineFact()("not-a-symbol", () => {
+        evidenceBuilds += 1;
+        return {};
+      }),
+    /symbol token/,
+  );
+  assert.equal(evidenceBuilds, 0);
+
+  assert.throws(
+    () => defineIdentity()(Symbol("Identity"), null),
+    /builders must be functions/,
+  );
+  assert.throws(
+    () => defineFact()(Symbol("Evidence"), null),
+    /builders must be functions/,
+  );
+
+  const IdentityApi = defineIdentity()(Symbol("IdentityValue"), (mint) => ({ mint }));
+  const EvidenceApi = defineFact()(Symbol("EvidenceValue"), (establish) => ({
+    establish,
+  }));
+
+  for (const scalar of ["value", 1, 1n, true, Symbol("value")]) {
+    assert.strictEqual(IdentityApi.mint(scalar), scalar);
+    assert.strictEqual(EvidenceApi.establish(scalar), scalar);
+  }
+
+  for (const nonScalar of [{}, [], () => 1, null, undefined]) {
+    assert.throws(() => IdentityApi.mint(nonScalar), /must be scalars/);
+    assert.throws(() => EvidenceApi.establish(nonScalar), /must be scalars/);
+  }
 });
 
 test("identity and evidence predicates are validated at declaration time", () => {

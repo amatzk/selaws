@@ -216,6 +216,12 @@ const LocalAscii = evidence.string(localAsciiKey, (value) =>
 type _factCarrierMismatchRejected = Expect<
   IsNever<evidence.Proven<typeof LocalNonEmpty, number>>
 >;
+type _arbitraryCallableIsNotIdentityDeclaration = Expect<
+  IsNever<identity.Value<(value: unknown) => string>>
+>;
+type _arbitraryCallableIsNotEvidenceDeclaration = Expect<
+  IsNever<evidence.Proven<(value: unknown) => string, string>>
+>;
 
 const localNonEmptyUserId = LocalNonEmpty(localUserId);
 

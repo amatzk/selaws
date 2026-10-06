@@ -190,9 +190,16 @@ type UserId = identity.Value<typeof UserId>;
 type RootUserId = rootIdentity.Value<typeof UserId>;
 type _UsefulIdentity = Expect<IsNever<UserId> extends false ? true : false>;
 type _RootIdentityNamespace = Expect<Equal<RootUserId, UserId>>;
+type _ArbitraryCallableIsNotIdentityDeclaration = Expect<
+  IsNever<identity.Value<(value: unknown) => string>>
+>;
 
 const UserIdCopy = identityCopy.shared.string("example.domain/UserId@1");
 type UserIdCopy = identityCopy.Value<typeof UserIdCopy>;
+type UserIdCopyReadByPrimary = identity.Value<typeof UserIdCopy>;
+type _CopySharedIdentityProjection = Expect<
+  Equal<UserIdCopyReadByPrimary, UserIdCopy>
+>;
 declare const userId: UserId;
 declare const userIdCopy: UserIdCopy;
 const namedCopyForward: UserIdCopy = userId;
@@ -229,7 +236,14 @@ const Ascii = evidence.string(
 type NonEmptyUserId = evidence.Proven<typeof NonEmpty, UserId>;
 type RootNonEmptyUserId = rootEvidence.Proven<typeof NonEmpty, UserId>;
 type NonEmptyUserIdCopy = evidenceCopy.Proven<typeof NonEmptyCopy, UserIdCopy>;
+type NonEmptyCopyReadByPrimary = evidence.Proven<typeof NonEmptyCopy, UserIdCopy>;
+type _CopySharedEvidenceProjection = Expect<
+  Equal<NonEmptyCopyReadByPrimary, NonEmptyUserIdCopy>
+>;
 type _RootEvidenceNamespace = Expect<Equal<RootNonEmptyUserId, NonEmptyUserId>>;
+type _ArbitraryCallableIsNotEvidenceDeclaration = Expect<
+  IsNever<evidence.Proven<(value: unknown) => string, string>>
+>;
 declare const proven: NonEmptyUserId;
 declare const provenCopy: NonEmptyUserIdCopy;
 const evidenceCopyForward: NonEmptyUserIdCopy = proven;
@@ -263,8 +277,11 @@ if (checked !== undefined) {
 }
 
 const sharedIdentityKey: unique symbol = Symbol("SharedIdentity");
+const StrictDomainCopy = identityCopy.string(sharedIdentityKey);
 type StrictA = Identity<string, typeof sharedIdentityKey>;
 type StrictB = IdentityCopy<string, typeof sharedIdentityKey>;
+type StrictCopyReadByPrimary = identity.Value<typeof StrictDomainCopy>;
+type _CopyLocalIdentityProjection = Expect<Equal<StrictCopyReadByPrimary, StrictB>>;
 declare const strictA: StrictA;
 declare const strictB: StrictB;
 const strictForward: StrictB = strictA;
@@ -285,8 +302,16 @@ type SameTokenEvidence = Evidence<StrictA, typeof sharedIdentityKey>;
 const strictIdentityIsNotEvidence: SameTokenEvidence = strictA;
 
 const sharedFactKey: unique symbol = Symbol("SharedFact");
+const StrictFactCopy = evidenceCopy.string(
+  sharedFactKey,
+  (value) => value.length > 0,
+);
 type ProvenA = Evidence<StrictA, typeof sharedFactKey>;
 type ProvenB = EvidenceCopy<StrictB, typeof sharedFactKey>;
+type StrictFactCopyReadByPrimary = evidence.Proven<typeof StrictFactCopy, StrictA>;
+type _CopyLocalEvidenceProjection = Expect<
+  Equal<StrictFactCopyReadByPrimary, ProvenA>
+>;
 declare const strictProvenA: ProvenA;
 declare const strictProvenB: ProvenB;
 const strictEvidenceForward: ProvenB = strictProvenA;
@@ -824,8 +849,8 @@ void (null as unknown as MatchSubpath);
     join(consumer, "runtime.mjs"),
     `import assert from "node:assert/strict";
 import * as root from "selaws";
-import { evidence } from "selaws/evidence";
-import { identity } from "selaws/identity";
+import { defineFact, evidence } from "selaws/evidence";
+import { defineIdentity, identity } from "selaws/identity";
 import { Option } from "selaws/option";
 import { Protocol } from "selaws/protocol";
 import { Variant } from "selaws/variant";
@@ -946,6 +971,54 @@ assert.throws(
   () => evidence.string("example.fact/Wrong@1", () => true),
   /symbol token/,
 );
+
+let identityBuilds = 0;
+assert.throws(
+  () =>
+    defineIdentity()("not-a-symbol", () => {
+      identityBuilds += 1;
+      return {};
+    }),
+  /symbol token/,
+);
+assert.equal(identityBuilds, 0);
+
+let evidenceBuilds = 0;
+assert.throws(
+  () =>
+    defineFact()("not-a-symbol", () => {
+      evidenceBuilds += 1;
+      return {};
+    }),
+  /symbol token/,
+);
+assert.equal(evidenceBuilds, 0);
+
+assert.throws(
+  () => defineIdentity()(Symbol("Identity"), null),
+  /builders must be functions/,
+);
+assert.throws(
+  () => defineFact()(Symbol("Evidence"), null),
+  /builders must be functions/,
+);
+
+const LowLevelIdentity = defineIdentity()(Symbol("LowLevelIdentity"), (mint) => ({
+  mint,
+}));
+const LowLevelEvidence = defineFact()(Symbol("LowLevelEvidence"), (establish) => ({
+  establish,
+}));
+
+for (const value of ["value", 1, 1n, true, Symbol("value")]) {
+  assert.strictEqual(LowLevelIdentity.mint(value), value);
+  assert.strictEqual(LowLevelEvidence.establish(value), value);
+}
+for (const value of [{}, [], () => 1, null, undefined]) {
+  assert.throws(() => LowLevelIdentity.mint(value), /must be scalars/);
+  assert.throws(() => LowLevelEvidence.establish(value), /must be scalars/);
+}
+
 assert.throws(
   () => Variant.define("example.variant/Wrong@1", [["ready", Variant.unit]]),
   /symbol token/,
@@ -967,10 +1040,12 @@ for (const [domain, value] of scalarCases) {
 const UserId = identity.string(Symbol("UserId"));
 const raw = "user_1";
 assert.equal(Object.is(UserId(raw), raw), true);
+assert.equal(Object.hasOwn(UserId, "~selaws.identity.declaration"), false);
 
 const NonEmpty = evidence.string(Symbol("NonEmpty"), (value) => value.length > 0);
 assert.equal(NonEmpty(raw), raw);
 assert.equal(NonEmpty(""), undefined);
+assert.equal(Object.hasOwn(NonEmpty, "~selaws.evidence.declaration"), false);
 
 const runtimeProtocol = Protocol.define([
   ["pending", "pay", "paid"],

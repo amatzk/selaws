@@ -2,6 +2,7 @@ import {
   isBigint,
   isBoolean,
   isNumber,
+  isScalar,
   isString,
   isSymbol,
   type NarrowSymbolSet,
@@ -40,10 +41,21 @@ export function defineFact<T extends Scalar>() {
     token: Fact & SingleSymbol<Fact>,
     build: (establish: Establish<T, Fact>) => Api,
   ): Api {
-    void token;
+    if (typeof token !== "symbol") {
+      throw new TypeError("Local evidence declarations require a symbol token.");
+    }
 
-    const establish = <Value extends T>(value: Value): Evidence<Value, Fact> =>
-      value as Evidence<Value, Fact>;
+    if (typeof build !== "function") {
+      throw new TypeError("Evidence declaration builders must be functions.");
+    }
+
+    const establish = <Value extends T>(value: Value): Evidence<Value, Fact> => {
+      if (!isScalar(value)) {
+        throw new TypeError("Evidence establishment values must be scalars.");
+      }
+
+      return value as Evidence<Value, Fact>;
+    };
 
     return build(establish);
   };
@@ -55,7 +67,7 @@ type SharedEvidence<T extends Scalar, Name extends string> = T & {
 
 type Predicate<T> = (value: T) => boolean;
 
-declare const evidenceDeclaration: unique symbol;
+type EvidenceDeclarationProperty = "~selaws.evidence.declaration";
 
 type LocalEvidenceDeclaration<T extends Scalar, Key extends symbol> = Readonly<{
   kind: "local";
@@ -69,14 +81,22 @@ type SharedEvidenceDeclaration<T extends Scalar, Name extends string> = Readonly
   name: Name;
 }>;
 
+type EvidenceDeclarationOf<Fact> = EvidenceDeclarationProperty extends keyof Fact
+  ? Fact extends {
+      readonly "~selaws.evidence.declaration"?: infer Declaration;
+    }
+    ? Exclude<Declaration, undefined>
+    : never
+  : never;
+
 interface LocalFact<T extends Scalar, Key extends symbol> {
-  readonly [evidenceDeclaration]: LocalEvidenceDeclaration<T, Key>;
+  readonly "~selaws.evidence.declaration"?: LocalEvidenceDeclaration<T, Key>;
   <Value extends T>(value: Value): Evidence<Value, Key> | undefined;
   (value: unknown): Evidence<T, Key> | undefined;
 }
 
 interface SharedFact<T extends Scalar, Name extends string> {
-  readonly [evidenceDeclaration]: SharedEvidenceDeclaration<T, Name>;
+  readonly "~selaws.evidence.declaration"?: SharedEvidenceDeclaration<T, Name>;
   <Value extends T>(value: Value): SharedEvidence<Value, Name> | undefined;
   (value: unknown): SharedEvidence<T, Name> | undefined;
 }
@@ -167,17 +187,16 @@ export const evidence: EvidenceFacade = {
 
 export namespace evidence {
   /** Applies an evidence declaration's fact type to an existing scalar value. */
-  export type Proven<F, Value extends Scalar> = F extends {
-    readonly [evidenceDeclaration]: infer Declaration;
-  }
-    ? Declaration extends LocalEvidenceDeclaration<infer T, infer Key>
-      ? Value extends T
-        ? Evidence<Value, Key>
-        : never
-      : Declaration extends SharedEvidenceDeclaration<infer T, infer Name>
+  export type Proven<F, Value extends Scalar> =
+    EvidenceDeclarationOf<F> extends infer Declaration
+      ? Declaration extends LocalEvidenceDeclaration<infer T, infer Key>
         ? Value extends T
-          ? SharedEvidence<Value, Name>
+          ? Evidence<Value, Key>
           : never
-        : never
-    : never;
+        : Declaration extends SharedEvidenceDeclaration<infer T, infer Name>
+          ? Value extends T
+            ? SharedEvidence<Value, Name>
+            : never
+          : never
+      : never;
 }

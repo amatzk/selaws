@@ -82,7 +82,9 @@ const UserId = defineIdentity<string>()(
 
 `defineIdentity` supplies `mint` only inside the definition callback. The
 declaring module chooses which public formation operations can introduce the
-identity.
+identity. At runtime, `mint` still enforces the Identity owner boundary that
+the carrier is a scalar; the more specific generic carrier type remains a
+TypeScript boundary.
 
 ## Explicit shared identity
 

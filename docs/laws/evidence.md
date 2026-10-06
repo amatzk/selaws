@@ -69,7 +69,10 @@ const NonEmpty = defineFact<string>()(
 ```
 
 `defineFact` keeps the establishment operation private to the declaration
-callback so the declaring module owns how the fact becomes available.
+callback so the declaring module owns how the fact becomes available. At
+runtime, `establish` still enforces the Evidence owner boundary that its value
+is a scalar; the more specific generic carrier type remains a TypeScript
+boundary.
 
 ## Explicit shared evidence
 

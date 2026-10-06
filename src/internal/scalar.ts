@@ -62,3 +62,10 @@ export const isBoolean = (value: unknown): value is boolean =>
   typeof value === "boolean";
 
 export const isSymbol = (value: unknown): value is symbol => typeof value === "symbol";
+
+export const isScalar = (value: unknown): value is Scalar =>
+  isString(value) ||
+  isNumber(value) ||
+  isBigint(value) ||
+  isBoolean(value) ||
+  isSymbol(value);
