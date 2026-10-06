@@ -43,8 +43,8 @@ npm install selaws
 ```
 
 Selaws is ESM, emits ES2022 JavaScript, has zero runtime dependencies, and
-targets the repository's pinned TypeScript 7 toolchain. Older TypeScript
-compilers are outside the compatibility contract.
+supports TypeScript 6 and 7. The repository uses a pinned TypeScript 7
+development compiler; the public type surface is also verified with TypeScript 6.
 
 ## Give scalar values domain identity
 
@@ -164,6 +164,7 @@ const Message = Variant.define(messageKey, [
 ]);
 
 type Message = Variant.Value<typeof Message>;
+type WriteMessage = Variant.Case<Message, "write">;
 
 const message: Message = Message.make.write("hello");
 
@@ -175,9 +176,10 @@ const size = Message.match(message, {
 ```
 
 The finite case-entry tuple is the complete Variant family. `make.<case>`
-preserves the correlation between a tag and its payload. `match` is exhaustive over the
-family in typed TypeScript, so adding a case exposes every family-level match
-that must be updated.
+preserves the correlation between a tag and its payload. `Variant.Case<Value,
+Name>` extracts one reusable named member from the exported value union.
+`match` is exhaustive and rejects undeclared handler keys in typed TypeScript,
+so adding or removing a case exposes stale family-level matches.
 
 Variant values remain ordinary tagged JavaScript objects:
 

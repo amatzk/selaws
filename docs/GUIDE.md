@@ -393,6 +393,20 @@ if (error.tag === "notFound") {
 Use `match` when the operation conceptually handles the family as a whole.
 Use ordinary narrowing when local control flow already owns the branch.
 
+When a named case type must cross a function or module boundary, use the
+exported value union rather than the private family object:
+
+```ts
+type NotFound =
+  Variant.Case<
+    LoadUserError,
+    "notFound"
+  >;
+```
+
+This preserves family identity and payload correlation without adding a runtime
+predicate API.
+
 ### Generic Variant families
 
 ```ts

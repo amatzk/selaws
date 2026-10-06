@@ -70,14 +70,20 @@ const variantMatched = Message.match(message, {
 });
 type _VariantPayload = Assert<Equal<typeof variantMatched, number | "quit">>;
 
-const variantWithExtraHandler = Message.match(message, {
+// @ts-expect-error Variant handler keys must equal the closed family universe
+Message.match(message, {
   quit: () => 0,
   write: (value) => value.length,
-  extra: () => "unreachable" as const,
+  extra: () => "stale" as const,
 });
-type _VariantExtraHandlerDoesNotPolluteResult = Assert<
-  Equal<typeof variantWithExtraHandler, number>
->;
+
+const staleVariantHandlers = {
+  quit: () => 0,
+  write: (value: string) => value.length,
+  extra: () => "stale" as const,
+};
+// @ts-expect-error prebuilt handler objects cannot retain undeclared Variant cases
+Message.match(message, staleVariantHandlers);
 
 const emptyMatchTypesKey: unique symbol = Symbol("EmptyMatchTypes");
 const EmptyVariant = Variant.define(emptyMatchTypesKey, []);

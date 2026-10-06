@@ -162,8 +162,10 @@ At runtime, `match` requires the Variant tag to be an own data property.
 Payload cases also require an own data `value` property. Inherited properties
 and accessors therefore cannot supply either part of the Variant
 representation. `match` then validates that the selected tag belongs to the
-family and that the selected handler is an own data-function property. TypeScript
-owns whole-handler exhaustiveness for honestly typed calls.
+family and that the selected handler is an own data-function property.
+TypeScript owns exact whole-family handler keys for honestly typed calls:
+missing and undeclared keys are rejected. Runtime Match does not enumerate the
+handler object to enforce that static exactness.
 
 Handler return and abrupt completion follow ordinary JavaScript semantics.
 Promise values remain native Promise values.
@@ -177,6 +179,17 @@ if (message.tag === "write") {
   // string
 }
 ```
+
+When one case needs a reusable type position, `Variant.Case<Value, Name>`
+extracts that member from the public Variant value union:
+
+```ts
+type Write =
+  Variant.Case<Message, "write">;
+```
+
+The selected case retains its payload correlation and family phantom identity.
+No runtime `Case` value or `Variant.is` predicate is introduced.
 
 ## 6. Generic and recursive families
 

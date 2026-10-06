@@ -316,6 +316,7 @@ Variant.shared
 Variant.payload
 Variant.unit
 Variant.Value
+Variant.Case
 ```
 
 ### Declare a family
@@ -349,6 +350,14 @@ union declaration lists are outside the typed grammar.
 `Variant.Value<Family>` extracts the complete tagged value union. The
 top-level type `Variant<Family>` is the equivalent carrier type.
 
+`Variant.Case<Value, Name>` extracts one named member from an exported Variant
+value union while preserving that member's payload and family identity:
+
+```ts
+type Write =
+  Variant.Case<Message, "write">;
+```
+
 ### Construct and eliminate
 
 ```ts
@@ -361,7 +370,10 @@ const length = Message.match(value, {
 });
 ```
 
-Typed `match` requires handlers for the complete family. At runtime, the
+Typed `match` requires exactly the complete family handler-key set: missing
+and undeclared keys are rejected statically, including on prebuilt handler
+objects. Runtime Match still resolves only the selected handler and does not
+enumerate keys. At runtime, the
 Variant value must carry its tag as an own data property; payload cases must
 also carry their payload as an own data `value` property. The selected tag must
 belong to the declaration, and the selected handler must be an own data-function

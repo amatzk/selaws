@@ -36,11 +36,28 @@ type _FocusedVariantType = Expect<Equal<FocusedMessage, Message>>;
 type _RootVariantType = Expect<Equal<RootMessage, Message>>;
 type _RootAliasVariantType = Expect<Equal<RootAliasMessage, Message>>;
 
+type WriteCase = VariantFacade.Case<Message, "write">;
+type RootWriteCase = RootVariant.Case<Message, "write">;
+type _WriteCaseTag = Expect<Equal<WriteCase["tag"], "write">>;
+type _WriteCasePayload = Expect<Equal<WriteCase["value"], string>>;
+type _RootCaseMatchesFocused = Expect<Equal<RootWriteCase, WriteCase>>;
+
+type CaseByName<
+  Value extends Readonly<{ tag: string }>,
+  Name extends Value["tag"],
+> = VariantFacade.Case<Value, Name>;
+type _GenericCaseName = Expect<Equal<CaseByName<Message, "quit">["tag"], "quit">>;
+
+// @ts-expect-error Variant.Case accepts only names in the closed value union
+type _MissingMessageCase = VariantFacade.Case<Message, "missing">;
+
 const quit = Message.make.quit();
 const write = Message.make.write("hello");
+const writeAsCase: WriteCase = write;
 const move = Message.make.move({ x: 1, y: 2 });
 const explicitUndefined = Message.make.explicitUndefined(undefined);
 void move;
+void writeAsCase;
 
 type _MessageTag = Expect<
   Equal<Message["tag"], "quit" | "write" | "move" | "explicitUndefined">
@@ -100,7 +117,14 @@ const Payment = define(paymentKey, [
 ]);
 type Door = Variant<typeof Door>;
 type Payment = Variant<typeof Payment>;
+type DoorOpen = VariantFacade.Case<Door, "open">;
+type PaymentOpen = VariantFacade.Case<Payment, "open">;
 declare const door: Door;
+declare const doorOpen: DoorOpen;
+
+// @ts-expect-error same case name does not erase distinct local family identity
+const paymentOpen: PaymentOpen = doorOpen;
+void paymentOpen;
 
 // @ts-expect-error same shape does not erase distinct declaration-owned family identity
 const payment: Payment = door;
@@ -206,9 +230,13 @@ const Remote = <T>() =>
   ]);
 
 type Remote<T> = Variant<ReturnType<typeof Remote<T>>>;
+type RemoteSuccess<T> = VariantFacade.Case<Remote<T>, "success">;
+type _GenericCasePayload = Expect<Equal<RemoteSuccess<number>["value"], number>>;
 const RemoteNumber = Remote<number>();
 const remoteNumber: Remote<number> = RemoteNumber.make.success(42);
+const remoteSuccess: RemoteSuccess<number> = RemoteNumber.make.success(42);
 void remoteNumber;
+void remoteSuccess;
 
 declare const broadSymbol: symbol;
 // @ts-expect-error declaration-owned family tokens require one unique symbol

@@ -165,12 +165,15 @@ type MatchResult<
   Handlers extends Matchers<Specs>,
 > = CallbackResult<Handlers[CaseName<Specs>]>;
 
+type NoExtraHandlerKeys<Handlers, Name extends PropertyKey> =
+  Exclude<keyof Handlers, Name> extends never ? unknown : never;
+
 type VariantFamily<TokenValue extends Token, Specs extends CaseSpecs> = Readonly<{
   make: Constructors<TokenValue, Specs>;
   /** Eliminates this family under the shared Match law. */
   match<const Handlers extends Matchers<Specs>>(
     value: VariantValue<TokenValue, Specs>,
-    handlers: Handlers,
+    handlers: Handlers & NoExtraHandlerKeys<Handlers, CaseName<Specs>>,
   ): MatchResult<Specs, Handlers>;
 }>;
 
@@ -272,7 +275,8 @@ const createFamily = <TokenValue extends Token, Entries extends readonly CaseEnt
     make: constructors as Constructors<TokenValue, CaseSpecsFromEntries<Entries>>,
     match<const Handlers extends Matchers<CaseSpecsFromEntries<Entries>>>(
       value: VariantValue<TokenValue, CaseSpecsFromEntries<Entries>>,
-      handlers: Handlers,
+      handlers: Handlers &
+        NoExtraHandlerKeys<Handlers, CaseName<CaseSpecsFromEntries<Entries>>>,
     ): MatchResult<CaseSpecsFromEntries<Entries>, Handlers> {
       if (
         value === null ||
@@ -371,4 +375,10 @@ export const Variant: VariantFacade = {
 export namespace Variant {
   /** Extracts the closed value union produced by one Variant family. */
   export type Value<Family> = import("./variant.js").Variant<Family>;
+
+  /** Extracts one named case from an exported Variant value union. */
+  export type Case<
+    Value extends Readonly<{ tag: string }>,
+    Name extends Value["tag"],
+  > = Extract<Value, Readonly<{ tag: Name }>>;
 }

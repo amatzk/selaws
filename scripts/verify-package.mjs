@@ -386,8 +386,14 @@ const PackageMessage = Variant.shared("example.variant/PackageMessage@1", [
 ]);
 type PackageMessage = Variant.Value<typeof PackageMessage>;
 type PackageMessageAlias = VariantValue<typeof PackageMessage>;
+type PackageTextCase = Variant.Case<PackageMessage, "text">;
 type RootPackageMessage = RootVariant.Value<typeof PackageMessage>;
 type RootPackageMessageAlias = RootVariantValue<typeof PackageMessage>;
+type RootPackageTextCase = RootVariant.Case<PackageMessage, "text">;
+type _PackageCasePayload = Expect<Equal<PackageTextCase["value"], string>>;
+type _RootPackageCase = Expect<Equal<RootPackageTextCase, PackageTextCase>>;
+// @ts-expect-error Variant.Case accepts only names in the closed family
+type MissingPackageCase = Variant.Case<PackageMessage, "missing">;
 type _VariantNamespace = Expect<Equal<PackageMessageAlias, PackageMessage>>;
 type _RootVariantNamespace = Expect<Equal<RootPackageMessage, PackageMessage>>;
 type _RootVariantAlias = Expect<Equal<RootPackageMessageAlias, PackageMessage>>;
@@ -413,8 +419,26 @@ const PackageMessageCopyReordered = VariantCopyFacade.shared("example.variant/Pa
 type PackageMessageCopyReordered =
   VariantCopyFacade.Value<typeof PackageMessageCopyReordered>;
 declare const packageMessageCopyReordered: PackageMessageCopyReordered;
+const exactPackageMatch = PackageMessage.match(packageMessage, {
+  none: () => 0,
+  text: (value) => value.length,
+});
+const packageStaleHandlers = {
+  none: () => 0,
+  text: (value: string) => value.length,
+  extra: () => 1,
+};
+// @ts-expect-error Variant match rejects undeclared handler keys on prebuilt objects
+PackageMessage.match(packageMessage, packageStaleHandlers);
+// @ts-expect-error Variant match rejects undeclared handler keys inline
+PackageMessage.match(packageMessage, {
+  none: () => 0,
+  text: (value) => value.length,
+  extra: () => 1,
+});
 const reorderedCopyForward: PackageMessageCopyReordered = packageMessage;
 const reorderedCopyBackward: PackageMessage = packageMessageCopyReordered;
+void exactPackageMatch;
 void reorderedCopyForward;
 void reorderedCopyBackward;
 
@@ -918,6 +942,7 @@ assert.strictEqual(root.evidence, evidence);
 assert.strictEqual(root.Option, Option);
 assert.strictEqual(root.Protocol, Protocol);
 assert.strictEqual(root.Variant, Variant);
+assert.equal(Object.hasOwn(Variant, "Case"), false);
 assert.strictEqual(Variant.unit, VariantCopy.unit);
 assert.strictEqual(Variant.payload(), VariantCopy.payload());
 assert.strictEqual(root.Result, Result);

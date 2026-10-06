@@ -21,6 +21,12 @@ export const Variant: typeof VariantFacade = VariantFacade;
 export namespace Variant {
   /** Extracts the closed value union produced by one Variant family. */
   export type Value<Family> = import("./variant.js").Variant<Family>;
+
+  /** Extracts one named case from an exported Variant value union. */
+  export type Case<
+    Value extends Readonly<{ tag: string }>,
+    Name extends Value["tag"],
+  > = import("./variant.js").Variant.Case<Value, Name>;
 }
 
 export type { None, OptionValue, Some } from "./option.js";
