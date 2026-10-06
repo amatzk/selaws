@@ -16,7 +16,7 @@ export type Valid<T> = Readonly<{
 /** One-or-more accumulated Validation issues. */
 export type Invalid<E> = Readonly<{
   valid: false;
-  errors: ValidationIssues<E>;
+  issues: ValidationIssues<E>;
 }>;
 
 /** Valid data or a non-empty ordered issue collection. */
@@ -26,7 +26,7 @@ export type Validation<T, E> = Valid<T> | Invalid<E>;
 export type ValidationValue<V> = V extends Valid<infer T> ? T : never;
 
 /** Extracts one issue type from a Validation union. */
-export type ValidationError<V> = V extends Invalid<infer E> ? E : never;
+export type ValidationIssue<V> = V extends Invalid<infer E> ? E : never;
 
 type ValidationValues<V extends readonly Validation<unknown, unknown>[]> = {
   [K in keyof V]: ValidationValue<V[K]>;
@@ -118,8 +118,8 @@ type ValidationStructValues<Entries extends readonly ValidationStructEntry[]> =
     >;
   }>;
 
-type ValidationStructError<Entries extends readonly ValidationStructEntry[]> =
-  ValidationError<StructValidation<Entries[number]>>;
+type ValidationStructIssue<Entries extends readonly ValidationStructEntry[]> =
+  ValidationIssue<StructValidation<Entries[number]>>;
 
 type StableArrayInput<Value extends readonly unknown[]> =
   true extends IsMutableArray<Value> ? never : unknown;
@@ -129,7 +129,7 @@ const isObjectLike = (value: unknown): value is object =>
 
 type ValidationSnapshot =
   | Readonly<{ valid: true; value: unknown }>
-  | Readonly<{ valid: false; errors: readonly unknown[] }>;
+  | Readonly<{ valid: false; issues: readonly unknown[] }>;
 
 const readValidationValue = (value: unknown): ValidationSnapshot | undefined => {
   if (!isObjectLike(value) || !Object.hasOwn(value, "valid")) {
@@ -150,16 +150,16 @@ const readValidationValue = (value: unknown): ValidationSnapshot | undefined => 
   }
 
   if (valid === false) {
-    if (!Object.hasOwn(value, "errors")) {
+    if (!Object.hasOwn(value, "issues")) {
       return undefined;
     }
 
-    const errors = (value as { readonly errors?: unknown }).errors;
-    if (!Array.isArray(errors)) {
+    const issues = (value as { readonly issues?: unknown }).issues;
+    if (!Array.isArray(issues)) {
       return undefined;
     }
 
-    const length = errors.length;
+    const length = issues.length;
     if (length === 0) {
       return undefined;
     }
@@ -167,14 +167,14 @@ const readValidationValue = (value: unknown): ValidationSnapshot | undefined => 
     const snapshot: unknown[] = [];
 
     for (let index = 0; index < length; index += 1) {
-      if (!Object.hasOwn(errors, index)) {
+      if (!Object.hasOwn(issues, index)) {
         return undefined;
       }
-      snapshot.push(errors[index]);
+      snapshot.push(issues[index]);
     }
 
     return {
-      errors: snapshot,
+      issues: snapshot,
       valid: false,
     };
   }
@@ -198,14 +198,14 @@ export const valid = <T>(value: T): Validation<T, never> => ({
 
 /** Constructs an Invalid with at least one issue and preserves issue order. */
 export const invalid = <const E extends readonly [unknown, ...unknown[]]>(
-  ...errors: E
+  ...issues: E
 ): Validation<never, E[number]> => {
-  if (errors.length === 0) {
+  if (issues.length === 0) {
     throw new TypeError("Validation.invalid() expects at least one issue.");
   }
 
   return {
-    errors,
+    issues,
     valid: false,
   };
 };
@@ -224,7 +224,7 @@ export const match = <
   T,
   E,
   ValidHandler extends (this: void, value: NoInfer<T>) => unknown,
-  InvalidHandler extends (this: void, errors: ValidationIssues<NoInfer<E>>) => unknown,
+  InvalidHandler extends (this: void, issues: ValidationIssues<NoInfer<E>>) => unknown,
 >(
   validation: Validation<T, E>,
   arms: Readonly<{
@@ -238,7 +238,7 @@ export const match = <
   }
 
   const selected = ownMatchHandler<InvalidHandler>(arms, "invalid");
-  return selected(validation.errors) as CallbackResult<InvalidHandler>;
+  return selected(validation.issues) as CallbackResult<InvalidHandler>;
 };
 
 /** Transforms Valid and preserves Invalid. */
@@ -249,30 +249,30 @@ export const map = <T, E, U>(
   validation.valid ? valid(transform(validation.value)) : validation;
 
 /** Transforms every issue one-for-one while preserving issue order. */
-export const mapError = <T, E, F>(
+export const mapIssue = <T, E, F>(
   validation: Validation<T, E>,
-  transform: (error: E) => F,
+  transform: (issue: E) => F,
 ): Validation<T, F> => {
   if (validation.valid) {
     return validation;
   }
 
-  const sourceErrors = validation.errors;
-  const length = sourceErrors.length;
+  const sourceIssues = validation.issues;
+  const length = sourceIssues.length;
   const snapshot: E[] = [];
 
   for (let index = 0; index < length; index += 1) {
-    snapshot.push(sourceErrors[index] as E);
+    snapshot.push(sourceIssues[index] as E);
   }
 
-  const errors: F[] = [];
+  const issues: F[] = [];
 
   for (let index = 0; index < length; index += 1) {
-    errors.push(transform(snapshot[index] as E));
+    issues.push(transform(snapshot[index] as E));
   }
 
   return {
-    errors: errors as unknown as ValidationIssues<F>,
+    issues: issues as unknown as ValidationIssues<F>,
     valid: false,
   };
 };
@@ -284,8 +284,8 @@ export const unwrapOr = <T, E, U>(validation: Validation<T, E>, fallback: U): T 
 /** Returns the Valid value or evaluates a lazy fallback from all issues. */
 export const unwrapOrElse = <T, E, U>(
   validation: Validation<T, E>,
-  fallback: (errors: ValidationIssues<E>) => U,
-): T | U => (validation.valid ? validation.value : fallback(validation.errors));
+  fallback: (issues: ValidationIssues<E>) => U,
+): T | U => (validation.valid ? validation.value : fallback(validation.issues));
 
 /**
  * Accumulates already-materialized tuple/array Validations.
@@ -295,10 +295,10 @@ export const unwrapOrElse = <T, E, U>(
  */
 export const all = <const V extends readonly Validation<unknown, unknown>[]>(
   validations: V & StableArrayInput<V>,
-): Validation<ValidationValues<V>, ValidationError<V[number]>> => {
+): Validation<ValidationValues<V>, ValidationIssue<V[number]>> => {
   const values: unknown[] = [];
-  const errors: unknown[] = [];
-  let hasErrors = false;
+  const issues: unknown[] = [];
+  let hasIssues = false;
   const length = validations.length;
 
   for (let index = 0; index < length; index += 1) {
@@ -306,14 +306,14 @@ export const all = <const V extends readonly Validation<unknown, unknown>[]>(
     if (validation.valid) {
       values.push(validation.value);
     } else {
-      hasErrors = true;
-      appendIssues(errors, validation.errors);
+      hasIssues = true;
+      appendIssues(issues, validation.issues);
     }
   }
 
-  if (hasErrors) {
+  if (hasIssues) {
     return {
-      errors: errors as unknown as ValidationIssues<ValidationError<V[number]>>,
+      issues: issues as unknown as ValidationIssues<ValidationIssue<V[number]>>,
       valid: false,
     };
   }
@@ -330,7 +330,7 @@ export const all = <const V extends readonly Validation<unknown, unknown>[]>(
 export const struct = <const Entries extends readonly ValidationStructEntry[]>(
   entries: Entries,
   ..._closed: ClosedStructEntries<Entries> extends never ? [never] : []
-): Validation<ValidationStructValues<Entries>, ValidationStructError<Entries>> => {
+): Validation<ValidationStructValues<Entries>, ValidationStructIssue<Entries>> => {
   if (!Array.isArray(entries)) {
     throw new TypeError("Validation.struct() expects an array of entries.");
   }
@@ -338,9 +338,9 @@ export const struct = <const Entries extends readonly ValidationStructEntry[]>(
   const entryCount = entries.length;
   const keys: ValidationStructKey[] = [];
   const values: unknown[] = [];
-  const errors: unknown[] = [];
+  const issues: unknown[] = [];
   const seen = new Set<ValidationStructKey>();
-  let hasErrors = false;
+  let hasIssues = false;
 
   for (let index = 0; index < entryCount; index += 1) {
     if (!Object.hasOwn(entries, index)) {
@@ -379,15 +379,15 @@ export const struct = <const Entries extends readonly ValidationStructEntry[]>(
     if (validation.valid) {
       values.push(validation.value);
     } else {
-      hasErrors = true;
+      hasIssues = true;
       values.push(undefined);
-      appendIssues(errors, validation.errors);
+      appendIssues(issues, validation.issues);
     }
   }
 
-  if (hasErrors) {
+  if (hasIssues) {
     return {
-      errors: errors as unknown as ValidationIssues<ValidationStructError<Entries>>,
+      issues: issues as unknown as ValidationIssues<ValidationStructIssue<Entries>>,
       valid: false,
     };
   }
@@ -426,7 +426,7 @@ type ValidationFacade = Readonly<{
   isInvalid: typeof isInvalid;
   isValid: typeof isValid;
   map: typeof map;
-  mapError: typeof mapError;
+  mapIssue: typeof mapIssue;
   match: typeof match;
   struct: typeof struct;
   unwrapOr: typeof unwrapOr;
@@ -443,7 +443,7 @@ export const Validation: ValidationFacade = {
   isInvalid,
   isValid,
   map,
-  mapError,
+  mapIssue,
   match,
   struct,
   unwrapOr,

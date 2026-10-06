@@ -527,7 +527,7 @@ const packageOverloadedValidation = Validation.match(
   Validation.valid(1 as number),
   {
     valid: packageOverloadedHandler,
-    invalid: (_errors: readonly [never, ...never[]]) => false as const,
+    invalid: (_issues: readonly [never, ...never[]]) => false as const,
   },
 );
 type _PackageOverloadedValidation = Expect<
@@ -891,7 +891,7 @@ const expectedFocusedSurfaces = new Map([
       "isInvalid",
       "isValid",
       "map",
-      "mapError",
+      "mapIssue",
       "match",
       "struct",
       "unwrapOr",
@@ -1014,10 +1014,17 @@ assert.deepEqual(mixedRuntimeVariant.make.value(1), {
 
 assert.deepEqual(Option.some(1), { some: true, value: 1 });
 assert.deepEqual(Validation.invalid("a", "b"), {
-  errors: ["a", "b"],
+  issues: ["a", "b"],
   valid: false,
 });
 assert.throws(() => Validation.struct([["optional", undefined]]), TypeError);
+assert.throws(
+  () =>
+    Validation.struct([
+      ["legacy", { errors: ["legacy"], valid: false }],
+    ]),
+  TypeError,
+);
 assert.deepEqual(Result.ok(1), { ok: true, value: 1 });
 
 for (const [name, invoke, selectedKey, otherKey] of [

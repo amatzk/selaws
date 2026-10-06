@@ -247,7 +247,7 @@ const input = Validation.struct([
 ]);
 
 if (!input.valid) {
-  console.log(input.errors);
+  console.log(input.issues);
   // non-empty issue collection
 }
 ```

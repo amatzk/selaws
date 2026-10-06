@@ -177,14 +177,14 @@ test("shared Match law preserves owner-defined branch payload and arity", () => 
   assert.equal(
     Validation.match(validation, {
       valid: () => 0,
-      invalid(errors) {
-        seenIssues = errors;
-        return errors.length;
+      invalid(issues) {
+        seenIssues = issues;
+        return issues.length;
       },
     }),
     2,
   );
-  assert.strictEqual(seenIssues, validation.errors);
+  assert.strictEqual(seenIssues, validation.issues);
 
   const Family = Variant.define(Symbol("MatchPayload"), [
     ["unitCase", Variant.unit],

@@ -153,7 +153,7 @@ export const fromValidation = <T, E>(
 ): Result<T, ValidationResultError<E>> =>
   validation.valid
     ? ok(validation.value)
-    : (err(validation.errors) as Result<T, ValidationResultError<E>>);
+    : (err(validation.issues) as Result<T, ValidationResultError<E>>);
 
 type ResultFacade = Readonly<{
   all: typeof all;

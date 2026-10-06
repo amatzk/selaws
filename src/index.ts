@@ -38,7 +38,7 @@ export const Option: typeof OptionFacade = OptionFacade;
 export type {
   Invalid,
   Valid,
-  ValidationError,
+  ValidationIssue,
   ValidationIssues,
   ValidationValue,
 } from "./validation.js";

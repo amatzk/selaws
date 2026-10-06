@@ -62,7 +62,7 @@ Result.match(result, {
 
 Validation.match(validation, {
   valid: (value) => use(value),
-  invalid: (errors) => report(errors),
+  invalid: (issues) => report(issues),
 });
 
 Message.match(message, {
@@ -249,7 +249,7 @@ const form = Validation.struct([
 ]);
 ```
 
-If both fields are invalid, `form.errors` contains both issues in deterministic
+If both fields are invalid, `form.issues` contains both issues in deterministic
 input order.
 
 Use `Validation.all` for positional tuples and `Validation.struct` for finite keyed products.

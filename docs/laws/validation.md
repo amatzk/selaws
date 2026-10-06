@@ -14,7 +14,7 @@ type Validation<T, E> =
   | Readonly<{ valid: true; value: T }>
   | Readonly<{
       valid: false;
-      errors: ValidationIssues<E>;
+      issues: ValidationIssues<E>;
     }>;
 ```
 
@@ -84,7 +84,7 @@ completion.
 
 `map` transforms Valid.
 
-`mapError` transforms each issue exactly once in order.
+`mapIssue` transforms each issue exactly once in order.
 
 Side-effect-only observation stays in ordinary JavaScript branching over
 `validation.valid`. Validation does not add observer callbacks whose only
@@ -108,4 +108,4 @@ const ready =
 ```
 
 That conversion carries Invalid's complete non-empty issue collection as one
-Result error value.
+Result issue value.

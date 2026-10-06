@@ -150,12 +150,12 @@ test("Validation constructors keep Invalid non-empty structural data", () => {
 
   assert.deepEqual(success, { valid: true, value: 1 });
   assert.deepEqual(failure, {
-    errors: ["first", "second"],
+    issues: ["first", "second"],
     valid: false,
   });
   assert.equal(Object.isFrozen(success), false);
   assert.equal(Object.isFrozen(failure), false);
-  assert.equal(Object.isFrozen(failure.errors), false);
+  assert.equal(Object.isFrozen(failure.issues), false);
 
   assert.throws(
     () => Validation.invalid(),
@@ -180,34 +180,34 @@ test("Validation maps values and each issue without changing issue order", () =>
 
   const visited = [];
   assert.deepEqual(
-    Validation.mapError(failure, (error) => {
-      visited.push(error);
-      return error.length;
+    Validation.mapIssue(failure, (issue) => {
+      visited.push(issue);
+      return issue.length;
     }),
     Validation.invalid(1, 2),
   );
   assert.deepEqual(visited, ["a", "bb"]);
 
   const hostileFailure = Validation.invalid("a", "b");
-  hostileFailure.errors[Symbol.iterator] = function* hostileIterator() {};
+  hostileFailure.issues[Symbol.iterator] = function* hostileIterator() {};
   assert.deepEqual(
-    Validation.mapError(hostileFailure, (error) => error.toUpperCase()),
+    Validation.mapIssue(hostileFailure, (issue) => issue.toUpperCase()),
     Validation.invalid("A", "B"),
   );
 
   const mutationSensitive = Validation.invalid("first", "second");
   assert.deepEqual(
-    Validation.mapError(mutationSensitive, (error) => {
-      if (error === "first") {
-        mutationSensitive.errors.pop();
+    Validation.mapIssue(mutationSensitive, (issue) => {
+      if (issue === "first") {
+        mutationSensitive.issues.pop();
       }
-      return error.toUpperCase();
+      return issue.toUpperCase();
     }),
     Validation.invalid("FIRST", "SECOND"),
   );
 
   assert.deepEqual(
-    Validation.mapError(Validation.invalid("10", "10", "10"), parseInt),
+    Validation.mapIssue(Validation.invalid("10", "10", "10"), parseInt),
     Validation.invalid(10, 10, 10),
   );
 
@@ -221,7 +221,7 @@ test("Validation maps values and each issue without changing issue order", () =>
   assert.equal(
     Validation.match(failure, {
       valid: () => 0,
-      invalid: (errors) => errors.join(","),
+      invalid: (issues) => issues.join(","),
     }),
     "a,bb",
   );
@@ -243,7 +243,7 @@ test("Validation all accumulates every issue in deterministic input order", () =
   assert.deepEqual(Validation.all([]), Validation.valid([]));
 
   const hostileIssue = Validation.invalid("first", "second");
-  hostileIssue.errors[Symbol.iterator] = function* hostileIssueIterator() {};
+  hostileIssue.issues[Symbol.iterator] = function* hostileIssueIterator() {};
   const hostileValidations = [hostileIssue, Validation.valid(1)];
   hostileValidations[Symbol.iterator] = function* hostileOuterIterator() {};
   assert.deepEqual(
@@ -307,23 +307,27 @@ test("Validation struct preserves exact entry keys and order", () => {
     /entry value to be a Validation/,
   );
   assert.throws(
-    () => Validation.struct([["malformed", { errors: [], valid: false }]]),
+    () => Validation.struct([["malformed", { issues: [], valid: false }]]),
+    /entry value to be a Validation/,
+  );
+  assert.throws(
+    () => Validation.struct([["legacy", { errors: ["legacy"], valid: false }]]),
     /entry value to be a Validation/,
   );
 
-  const sparseErrors = new Array(1);
+  const sparseIssues = new Array(1);
   assert.throws(
     () =>
-      Validation.struct([["sparse-errors", { errors: sparseErrors, valid: false }]]),
+      Validation.struct([["sparse-issues", { issues: sparseIssues, valid: false }]]),
     /entry value to be a Validation/,
   );
 
-  const inheritedErrors = new Array(1);
-  Object.setPrototypeOf(inheritedErrors, { 0: "polluted" });
+  const inheritedIssues = new Array(1);
+  Object.setPrototypeOf(inheritedIssues, { 0: "polluted" });
   assert.throws(
     () =>
       Validation.struct([
-        ["inherited-errors", { errors: inheritedErrors, valid: false }],
+        ["inherited-issues", { issues: inheritedIssues, valid: false }],
       ]),
     /entry value to be a Validation/,
   );
@@ -347,7 +351,7 @@ test("Validation struct preserves exact entry keys and order", () => {
   let errorReads = 0;
   const unstable = {
     valid: false,
-    get errors() {
+    get issues() {
       errorReads += 1;
       return errorReads === 1 ? ["issue"] : [];
     },
@@ -373,7 +377,7 @@ test("Validation struct preserves exact entry keys and order", () => {
       [
         "changingLength",
         {
-          errors: changingLength,
+          issues: changingLength,
           valid: false,
         },
       ],
@@ -382,14 +386,14 @@ test("Validation struct preserves exact entry keys and order", () => {
   );
   assert.equal(lengthReads, 1);
 
-  const hostileErrors = ["iterated"];
-  hostileErrors[Symbol.iterator] = function* hostileIterator() {};
+  const hostileIssues = ["iterated"];
+  hostileIssues[Symbol.iterator] = function* hostileIterator() {};
   assert.deepEqual(
     Validation.struct([
       [
         "hostile",
         {
-          errors: hostileErrors,
+          issues: hostileIssues,
           valid: false,
         },
       ],
@@ -432,12 +436,12 @@ test("Validation struct preserves exact entry keys and order", () => {
   assert.deepEqual(pollutionIndependent, Validation.valid({ [pollutedKey]: 1 }));
 
   const oldValid = Object.getOwnPropertyDescriptor(Object.prototype, "valid");
-  const oldErrors = Object.getOwnPropertyDescriptor(Object.prototype, "errors");
+  const oldIssues = Object.getOwnPropertyDescriptor(Object.prototype, "issues");
   Object.defineProperty(Object.prototype, "valid", {
     configurable: true,
     value: false,
   });
-  Object.defineProperty(Object.prototype, "errors", {
+  Object.defineProperty(Object.prototype, "issues", {
     configurable: true,
     value: ["polluted"],
   });
@@ -452,10 +456,10 @@ test("Validation struct preserves exact entry keys and order", () => {
     } else {
       Object.defineProperty(Object.prototype, "valid", oldValid);
     }
-    if (oldErrors === undefined) {
-      delete Object.prototype.errors;
+    if (oldIssues === undefined) {
+      delete Object.prototype.issues;
     } else {
-      Object.defineProperty(Object.prototype, "errors", oldErrors);
+      Object.defineProperty(Object.prototype, "issues", oldIssues);
     }
   }
 
@@ -465,34 +469,34 @@ test("Validation struct preserves exact entry keys and order", () => {
 test("Validation handles large issue collections without argument spreading", () => {
   const issues = Array.from({ length: 200_000 }, (_, index) => index);
   const failure = {
-    errors: issues,
+    issues: issues,
     valid: false,
   };
 
-  const mapped = Validation.mapError(failure, (issue) => issue + 1);
+  const mapped = Validation.mapIssue(failure, (issue) => issue + 1);
   assert.equal(mapped.valid, false);
-  assert.equal(mapped.errors.length, issues.length);
-  assert.equal(mapped.errors[0], 1);
-  assert.equal(mapped.errors.at(-1), issues.length);
+  assert.equal(mapped.issues.length, issues.length);
+  assert.equal(mapped.issues[0], 1);
+  assert.equal(mapped.issues.at(-1), issues.length);
 
   const combined = Validation.all([failure]);
   assert.equal(combined.valid, false);
-  assert.equal(combined.errors.length, issues.length);
-  assert.equal(combined.errors.at(-1), issues.at(-1));
+  assert.equal(combined.issues.length, issues.length);
+  assert.equal(combined.issues.at(-1), issues.at(-1));
 
   const record = Validation.struct([["field", failure]]);
   assert.equal(record.valid, false);
-  assert.equal(record.errors.length, issues.length);
-  assert.equal(record.errors.at(-1), issues.at(-1));
+  assert.equal(record.issues.length, issues.length);
+  assert.equal(record.issues.at(-1), issues.at(-1));
 });
 
-test("Validation fallback exposes the whole error group", () => {
+test("Validation fallback exposes the whole issue group", () => {
   const failure = Validation.invalid("a", "b");
 
   assert.equal(Validation.unwrapOr(Validation.valid(2), 9), 2);
   assert.equal(Validation.unwrapOr(failure, 9), 9);
   assert.equal(
-    Validation.unwrapOrElse(failure, (errors) => errors.length),
+    Validation.unwrapOrElse(failure, (issues) => issues.length),
     2,
   );
 });
@@ -523,7 +527,7 @@ test("Option, Validation, and Result conversions are explicit and lazy", () => {
   const invalid = Validation.invalid("first", "second");
   const converted = Result.fromValidation(invalid);
   assert.equal(converted.ok, false);
-  assert.strictEqual(converted.error, invalid.errors);
+  assert.strictEqual(converted.error, invalid.issues);
 
   assert.deepEqual(
     Validation.fromResult(err(["a", "b"])),
@@ -536,7 +540,7 @@ test("Validation and conversion callbacks leave thrown exceptions abrupt", () =>
 
   assert.throws(
     () =>
-      Validation.mapError(Validation.invalid("bad"), () => {
+      Validation.mapIssue(Validation.invalid("bad"), () => {
         throw marker;
       }),
     (caught) => caught === marker,

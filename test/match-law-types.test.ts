@@ -45,7 +45,7 @@ Result.match(Result.ok(1), {
 declare const validation: ValidationValue<number, "first" | "second">;
 const validationMatched = Validation.match(validation, {
   valid: (value) => value + 1,
-  invalid: (errors) => errors,
+  invalid: (issues) => issues,
 });
 type _ValidationPayload = Assert<
   Equal<typeof validationMatched, number | ValidationIssues<"first" | "second">>
@@ -111,7 +111,7 @@ type _ResultCompletion = Assert<Equal<typeof resultAsync, Promise<number> | "fai
 
 const validationAsync = Validation.match(validation, {
   valid: async (value) => value + 1,
-  invalid: (errors) => errors,
+  invalid: (issues) => issues,
 });
 type _ValidationCompletion = Assert<
   Equal<typeof validationAsync, Promise<number> | ValidationIssues<"first" | "second">>
@@ -147,7 +147,7 @@ type _OverloadedResultResult = Assert<
 
 const overloadedValidation = Validation.match(Validation.valid(1 as number), {
   valid: overloadedMatchHandler,
-  invalid: (_errors: ValidationIssues<never>) => false as const,
+  invalid: (_issues: ValidationIssues<never>) => false as const,
 });
 type _OverloadedValidationResult = Assert<
   Equal<typeof overloadedValidation, number | string | false>

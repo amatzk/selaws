@@ -10,10 +10,10 @@ import {
   fromResult,
   invalid,
   map,
-  mapError,
+  mapIssue,
   struct,
   type Validation,
-  type ValidationError,
+  type ValidationIssue,
   type ValidationIssues,
   type ValidationValue,
   valid,
@@ -38,7 +38,7 @@ type _HeterogeneousInvalid = Assert<
   Equal<typeof heterogeneousInvalid, Validation<never, "bad" | 2>>
 >;
 type _ValueProjection = Assert<Equal<ValidationValue<Validation<number, "e">>, number>>;
-type _ErrorProjection = Assert<Equal<ValidationError<Validation<number, "e">>, "e">>;
+type _IssueProjection = Assert<Equal<ValidationIssue<Validation<number, "e">>, "e">>;
 
 // @ts-expect-error Invalid must always contain at least one issue
 invalid();
@@ -48,11 +48,13 @@ declare const input: Validation<number, "parse" | "range">;
 if (input.valid) {
   const value: number = input.value;
   void value;
-  // @ts-expect-error Valid carries no errors
-  input.errors;
+  // @ts-expect-error Valid carries no issues
+  input.issues;
 } else {
-  const errors: ValidationIssues<"parse" | "range"> = input.errors;
-  void errors;
+  const issues: ValidationIssues<"parse" | "range"> = input.issues;
+  void issues;
+  // @ts-expect-error Invalid exposes issues, not the old errors property
+  input.errors;
   // @ts-expect-error Invalid carries no value
   input.value;
 }
@@ -60,9 +62,11 @@ if (input.valid) {
 const mapped = map(input, (value) => value.toString());
 type _Mapped = Assert<Equal<typeof mapped, Validation<string, "parse" | "range">>>;
 
-const mappedError = mapError(input, (error) => ({ kind: error }) as const);
+const mappedIssue = mapIssue(input, (issue) => ({ kind: issue }) as const);
+// @ts-expect-error Validation no longer exposes the old mapError alias
+RootValidation.mapError(input, (issue) => issue);
 type _MappedError = Assert<
-  Equal<typeof mappedError, Validation<number, Readonly<{ kind: "parse" | "range" }>>>
+  Equal<typeof mappedIssue, Validation<number, Readonly<{ kind: "parse" | "range" }>>>
 >;
 
 declare const first: Validation<number, "first">;
@@ -163,10 +167,10 @@ const mutableStructEntries: [readonly ["name", Validation<string, never>]] = [
 // @ts-expect-error mutable outer tuples can be widened and changed before struct
 struct(mutableStructEntries);
 
-declare const result: ResultValue<number, "result-error">;
+declare const result: ResultValue<number, "result-issue">;
 const validationFromResult = fromResult(result);
 type _FromResult = Assert<
-  Equal<typeof validationFromResult, Validation<number, "result-error">>
+  Equal<typeof validationFromResult, Validation<number, "result-issue">>
 >;
 
 const validationFromOption = fromOption(some(1), () => "missing" as const);

@@ -41,7 +41,7 @@ Valid
 Invalid
 ValidationIssues
 ValidationValue
-ValidationError
+ValidationIssue
 
 Result
 Ok
@@ -449,7 +449,7 @@ Invalid
 Validation
 ValidationIssues
 ValidationValue
-ValidationError
+ValidationIssue
 ```
 
 Runtime exports and facade members:
@@ -461,7 +461,7 @@ isValid
 isInvalid
 match
 map
-mapError
+mapIssue
 unwrapOr
 unwrapOrElse
 all
@@ -477,7 +477,7 @@ Operation groups:
 | --- | --- | --- |
 | Formation | `valid`, `invalid` | construct valid data or non-empty issues |
 | Narrowing/elimination | `isValid`, `isInvalid`, `match` | inspect the branch |
-| Mapping | `map`, `mapError` | transform values or every issue |
+| Mapping | `map`, `mapIssue` | transform values or every issue |
 | Fallback | `unwrapOr`, `unwrapOrElse` | leave Validation with an explicit fallback |
 | Accumulation | `all`, `struct` | combine independent available checks |
 | Conversion | `fromOption`, `fromResult` | introduce Validation meaning at an explicit boundary |
@@ -485,7 +485,7 @@ Operation groups:
 `ValidationIssues<E>` is a non-empty readonly tuple type.
 
 `ValidationValue<V>` extracts the Valid payload.
-`ValidationError<V>` extracts one issue type.
+`ValidationIssue<V>` extracts one issue type.
 
 `Validation.all` preserves finite tuple positions. Typed input arrays must be
 readonly; broad readonly Validation arrays remain valid. `Validation.struct` accepts one
