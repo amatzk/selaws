@@ -38,6 +38,8 @@ return loadAccount(
 ```
 
 Ordinary JavaScript branching is a first-class way to compose Result values.
+It is also the boundary for side-effect-only observation; Result does not add
+observer callbacks that return the unchanged carrier.
 
 `Result.all` inspects already-materialized inputs in order and returns the
 first Err object itself. Complete success preserves tuple positions. Typed

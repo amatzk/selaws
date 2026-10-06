@@ -13,6 +13,29 @@ Package co-location does not merge their laws.
 | Validation | Which independently available checks have issues? |
 | Result | Did a recoverable computation succeed? |
 
+A useful reading classification is:
+
+```text
+Value / relation laws
+  Identity
+  Evidence
+  Protocol
+  Variant
+
+Outcome algebras
+  Option
+  Validation
+  Result
+
+Shared laws
+  Match
+  declaration compatibility
+```
+
+This classification is only a navigation aid. It does not introduce
+inheritance, merge semantic owners, or imply dependencies between them; package
+co-location likewise does not merge their laws.
+
 The detailed owner contracts are:
 
 - [Identity](./laws/identity.md)
@@ -246,17 +269,17 @@ See [Declaration compatibility](./laws/declaration-compatibility.md).
 
 ## 7. Completion law
 
-Ordinary transformation, recovery, fallback, observation, predicate,
-conversion, and Variant elimination callbacks follow JavaScript completion
-semantics. A thrown callback remains abrupt unless an explicit Result capture
-boundary owns the conversion.
+Ordinary transformation, recovery, fallback, predicate, conversion, and
+elimination callbacks follow JavaScript completion semantics. A thrown callback
+remains abrupt unless an explicit Result capture boundary owns the conversion.
 
-Synchronous observation helpers require synchronous completion. Promise-like
-completion is rejected rather than silently discarded. At runtime,
-Promise-like means a non-null object or function with a callable `then`.
+Side-effect-only observation stays in ordinary JavaScript control flow rather
+than introducing a separate carrier callback law.
 
 Result capture helpers are the explicit boundary that maps thrown or rejected
-JavaScript completion into recoverable Result error data.
+JavaScript completion into recoverable Result error data. Synchronous
+`attempt` rejects Promise-like completion rather than silently treating an
+asynchronous operation as synchronous.
 
 ## 8. Async law
 

@@ -1,6 +1,5 @@
 import type { CallbackResult } from "./internal/callback.js";
 import { ownMatchHandler } from "./internal/match.js";
-import { assertNotPromiseLike, type NotPromiseLike } from "./internal/promise-like.js";
 
 /** A present Option value. */
 export type Some<T> = Readonly<{
@@ -22,8 +21,6 @@ export type OptionValue<O> = O extends Some<infer T> ? T : never;
 type OptionValues<O extends readonly Option<unknown>[]> = {
   [K in keyof O]: OptionValue<O[K]>;
 };
-
-type SynchronousReturn<T> = [T] extends [NotPromiseLike<T>] ? unknown : never;
 
 type IsMutableArray<Value> = Value extends unknown[] ? true : false;
 
@@ -110,21 +107,6 @@ export function filter<T>(
   return predicate(option.value) ? option : none();
 }
 
-/** Synchronously observes Some and returns the original Option. */
-export const inspect = <T, R>(
-  option: Option<T>,
-  observe: ((value: T) => R) & SynchronousReturn<R>,
-): Option<T> => {
-  if (option.some) {
-    const completion = observe(option.value);
-    assertNotPromiseLike(
-      completion,
-      "Option.inspect() expects a synchronous observer.",
-    );
-  }
-  return option;
-};
-
 /** Returns the Some value or an eager fallback. */
 export const unwrapOr = <T, U>(option: Option<T>, fallback: U): T | U =>
   option.some ? option.value : fallback;
@@ -178,7 +160,6 @@ type OptionFacade = Readonly<{
   flatten: typeof flatten;
   fromNullable: typeof fromNullable;
   fromUndefined: typeof fromUndefined;
-  inspect: typeof inspect;
   isNone: typeof isNone;
   isSome: typeof isSome;
   map: typeof map;
@@ -200,7 +181,6 @@ export const Option: OptionFacade = {
   flatten,
   fromNullable,
   fromUndefined,
-  inspect,
   isNone,
   isSome,
   map,

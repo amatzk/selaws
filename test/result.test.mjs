@@ -8,8 +8,6 @@ import {
   attemptAsync,
   err,
   flatten,
-  inspect,
-  inspectError,
   map,
   mapError,
   match,
@@ -90,23 +88,6 @@ test("core algebra touches only the selected arm", () => {
     3,
   );
 
-  assert.strictEqual(
-    inspect(success, () => undefined),
-    success,
-  );
-  assert.strictEqual(
-    inspect(failure, () => assert.fail()),
-    failure,
-  );
-  assert.strictEqual(
-    inspectError(success, () => assert.fail()),
-    success,
-  );
-  assert.strictEqual(
-    inspectError(failure, () => undefined),
-    failure,
-  );
-
   assert.equal(unwrapOr(success, 7), 2);
   assert.equal(unwrapOr(failure, 7), 7);
   assert.equal(
@@ -116,38 +97,6 @@ test("core algebra touches only the selected arm", () => {
   assert.equal(
     unwrapOrElse(failure, (error) => error.length),
     3,
-  );
-});
-
-test("Result observation rejects Promise-like runtime completion", () => {
-  assert.throws(
-    () => inspect(ok(1), () => Promise.resolve()),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Result.inspect() expects a synchronous observer.",
-  );
-
-  assert.throws(
-    () => inspectError(err("bad"), () => Promise.resolve()),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Result.inspectError() expects a synchronous observer.",
-  );
-
-  const proxyThenable = new Proxy(
-    {},
-    {
-      get(target, key, receiver) {
-        return key === "then" ? () => undefined : Reflect.get(target, key, receiver);
-      },
-    },
-  );
-
-  assert.throws(
-    () => inspect(ok(1), () => proxyThenable),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Result.inspect() expects a synchronous observer.",
   );
 });
 

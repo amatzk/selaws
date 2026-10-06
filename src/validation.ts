@@ -1,6 +1,5 @@
 import type { CallbackResult } from "./internal/callback.js";
 import { ownMatchHandler } from "./internal/match.js";
-import { assertNotPromiseLike, type NotPromiseLike } from "./internal/promise-like.js";
 import type { SingleName, SingleSymbol } from "./internal/scalar.js";
 import type { Option } from "./option.js";
 import type { Result } from "./result/core.js";
@@ -121,8 +120,6 @@ type ValidationStructValues<Entries extends readonly ValidationStructEntry[]> =
 
 type ValidationStructError<Entries extends readonly ValidationStructEntry[]> =
   ValidationError<StructValidation<Entries[number]>>;
-
-type SynchronousReturn<T> = [T] extends [NotPromiseLike<T>] ? unknown : never;
 
 type StableArrayInput<Value extends readonly unknown[]> =
   true extends IsMutableArray<Value> ? never : unknown;
@@ -280,39 +277,6 @@ export const mapError = <T, E, F>(
   };
 };
 
-/** Synchronously observes Valid and returns the original Validation. */
-export const inspect = <T, E, R>(
-  validation: Validation<T, E>,
-  observe: ((value: T) => R) & SynchronousReturn<R>,
-): Validation<T, E> => {
-  if (validation.valid) {
-    const completion = observe(validation.value);
-    assertNotPromiseLike(
-      completion,
-      "Validation.inspect() expects a synchronous observer.",
-    );
-  }
-  return validation;
-};
-
-/**
- * Synchronously observes the complete Invalid issue collection and returns the
- * original Validation.
- */
-export const inspectErrors = <T, E, R>(
-  validation: Validation<T, E>,
-  observe: ((errors: ValidationIssues<E>) => R) & SynchronousReturn<R>,
-): Validation<T, E> => {
-  if (!validation.valid) {
-    const completion = observe(validation.errors);
-    assertNotPromiseLike(
-      completion,
-      "Validation.inspectErrors() expects a synchronous observer.",
-    );
-  }
-  return validation;
-};
-
 /** Returns the Valid value or an eager fallback. */
 export const unwrapOr = <T, E, U>(validation: Validation<T, E>, fallback: U): T | U =>
   validation.valid ? validation.value : fallback;
@@ -458,8 +422,6 @@ type ValidationFacade = Readonly<{
   all: typeof all;
   fromOption: typeof fromOption;
   fromResult: typeof fromResult;
-  inspect: typeof inspect;
-  inspectErrors: typeof inspectErrors;
   invalid: typeof invalid;
   isInvalid: typeof isInvalid;
   isValid: typeof isValid;
@@ -477,8 +439,6 @@ export const Validation: ValidationFacade = {
   all,
   fromOption,
   fromResult,
-  inspect,
-  inspectErrors,
   invalid,
   isInvalid,
   isValid,

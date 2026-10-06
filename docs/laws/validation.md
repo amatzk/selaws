@@ -80,16 +80,15 @@ selected handler must be an own data-function property, is invoked once without
 a library-defined receiver, and preserves ordinary return, throw, or Promise
 completion.
 
-## Mapping and observation
+## Mapping and fallback
 
 `map` transforms Valid.
 
 `mapError` transforms each issue exactly once in order.
 
-`inspect` synchronously observes Valid and returns the original Validation.
-
-`inspectErrors` synchronously observes the complete non-empty issue collection
-as one value and returns the original Validation.
+Side-effect-only observation stays in ordinary JavaScript branching over
+`validation.valid`. Validation does not add observer callbacks whose only
+result is the unchanged carrier.
 
 `unwrapOr` and `unwrapOrElse` leave Validation through an explicit fallback.
 

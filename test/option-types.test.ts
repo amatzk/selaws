@@ -6,7 +6,6 @@ import {
   flatten,
   fromNullable,
   fromUndefined,
-  inspect,
   type None,
   none,
   type Option,
@@ -98,37 +97,6 @@ type _ToUndefined = Assert<Equal<typeof undefinedValue, number | undefined>>;
 
 const nullableValue = toNullable(first);
 type _ToNullable = Assert<Equal<typeof nullableValue, number | null>>;
-
-inspect(first, (value) => {
-  void value;
-});
-
-// @ts-expect-error inspect must not silently discard a Promise
-inspect(first, async (value) => {
-  void value;
-});
-
-declare const maybeAsyncObserver: (value: number) => void | Promise<void>;
-// @ts-expect-error inspect rejects callbacks that may return a PromiseLike
-inspect(first, maybeAsyncObserver);
-
-declare const nonCallableThenCompletion: { then: string };
-declare const callableThenCompletion: { then(): number };
-declare const broadCallableThenCompletion: { then: FunctionConstructor["prototype"] };
-inspect(first, () => nonCallableThenCompletion);
-// @ts-expect-error inspect rejects callable-then completions
-inspect(first, () => callableThenCompletion);
-// @ts-expect-error inspect rejects broad Function-typed then completions
-inspect(first, () => broadCallableThenCompletion);
-
-function overloadedObserver(value: number): Promise<void>;
-function overloadedObserver(value: string): void;
-function overloadedObserver(value: number | string): Promise<void> | undefined {
-  return typeof value === "number" ? Promise.resolve() : undefined;
-}
-
-// @ts-expect-error inspect checks the overload applicable to the Option value
-inspect(first, overloadedObserver);
 
 const rootSome: RootOption<number> = RootOption.some(1);
 type _RootFacade = Assert<Equal<typeof rootSome, RootOptionType<number>>>;

@@ -8,8 +8,6 @@ import {
   all,
   fromOption,
   fromResult,
-  inspect,
-  inspectErrors,
   invalid,
   map,
   mapError,
@@ -205,49 +203,6 @@ const nestedIssue = fromResult(err(["a", "b"] as const));
 type _NestedIssue = Assert<
   Equal<typeof nestedIssue, Validation<never, readonly ["a", "b"]>>
 >;
-
-inspect(input, (value) => {
-  void value;
-});
-
-// @ts-expect-error inspect must not silently discard a Promise
-inspect(input, async (value) => {
-  void value;
-});
-
-declare const maybeAsyncObserver: (value: number) => void | Promise<void>;
-// @ts-expect-error inspect rejects callbacks that may return a PromiseLike
-inspect(input, maybeAsyncObserver);
-
-declare const nonCallableThenCompletion: { then: string };
-declare const callableThenCompletion: { then(): number };
-declare const broadCallableThenCompletion: { then: FunctionConstructor["prototype"] };
-inspect(input, () => nonCallableThenCompletion);
-// @ts-expect-error inspect rejects callable-then completions
-inspect(input, () => callableThenCompletion);
-// @ts-expect-error inspect rejects broad Function-typed then completions
-inspect(input, () => broadCallableThenCompletion);
-
-function overloadedObserver(value: number): Promise<void>;
-function overloadedObserver(value: string): void;
-function overloadedObserver(value: number | string): Promise<void> | undefined {
-  return typeof value === "number" ? Promise.resolve() : undefined;
-}
-
-// @ts-expect-error inspect checks the overload applicable to the Validation value
-inspect(input, overloadedObserver);
-
-declare const maybeAsyncErrorObserver: (
-  errors: ValidationIssues<"parse" | "range">,
-) => void | Promise<void>;
-// @ts-expect-error inspectErrors rejects callbacks that may return a PromiseLike
-inspectErrors(input, maybeAsyncErrorObserver);
-
-inspectErrors(input, () => nonCallableThenCompletion);
-// @ts-expect-error inspectErrors rejects callable-then completions
-inspectErrors(input, () => callableThenCompletion);
-// @ts-expect-error inspectErrors rejects broad Function-typed then completions
-inspectErrors(input, () => broadCallableThenCompletion);
 
 const rootValid: RootValidation<number, never> = RootValidation.valid(1);
 type _RootFacade = Assert<Equal<typeof rootValid, RootValidationType<number, never>>>;

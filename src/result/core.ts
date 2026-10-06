@@ -1,6 +1,5 @@
 import type { CallbackResult } from "../internal/callback.js";
 import { ownMatchHandler } from "../internal/match.js";
-import { assertNotPromiseLike, type NotPromiseLike } from "../internal/promise-like.js";
 import type { Option } from "../option.js";
 import type { Validation, ValidationIssues } from "../validation.js";
 
@@ -33,8 +32,6 @@ type ResultValues<R extends readonly Result<unknown, unknown>[]> = {
 };
 
 type ValidationResultError<E> = [E] extends [never] ? never : ValidationIssues<E>;
-
-type SynchronousReturn<T> = [T] extends [NotPromiseLike<T>] ? unknown : never;
 
 type IsMutableArray<Value> = Value extends unknown[] ? true : false;
 
@@ -109,36 +106,6 @@ export const orElse = <T, E, U, F>(
 export const flatten = <T, E, F>(result: Result<Result<T, F>, E>): Result<T, E | F> =>
   result.ok ? result.value : result;
 
-/** Synchronously observes Ok and returns the original Result. */
-export const inspect = <T, E, R>(
-  result: Result<T, E>,
-  observe: ((value: T) => R) & SynchronousReturn<R>,
-): Result<T, E> => {
-  if (result.ok) {
-    const completion = observe(result.value);
-    assertNotPromiseLike(
-      completion,
-      "Result.inspect() expects a synchronous observer.",
-    );
-  }
-  return result;
-};
-
-/** Synchronously observes Err and returns the original Result. */
-export const inspectError = <T, E, R>(
-  result: Result<T, E>,
-  observe: ((error: E) => R) & SynchronousReturn<R>,
-): Result<T, E> => {
-  if (!result.ok) {
-    const completion = observe(result.error);
-    assertNotPromiseLike(
-      completion,
-      "Result.inspectError() expects a synchronous observer.",
-    );
-  }
-  return result;
-};
-
 /** Returns the Ok value or an eager fallback. */
 export const unwrapOr = <T, E, U>(result: Result<T, E>, fallback: U): T | U =>
   result.ok ? result.value : fallback;
@@ -195,8 +162,6 @@ type ResultFacade = Readonly<{
   flatten: typeof flatten;
   fromOption: typeof fromOption;
   fromValidation: typeof fromValidation;
-  inspect: typeof inspect;
-  inspectError: typeof inspectError;
   isErr: typeof isErr;
   isOk: typeof isOk;
   map: typeof map;
@@ -216,8 +181,6 @@ export const Result: ResultFacade = {
   flatten,
   fromOption,
   fromValidation,
-  inspect,
-  inspectError,
   isErr,
   isOk,
   map,

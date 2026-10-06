@@ -408,7 +408,6 @@ andThen
 orElse
 flatten
 filter
-inspect
 unwrapOr
 unwrapOrElse
 all
@@ -426,7 +425,7 @@ Operation groups:
 | Formation | `some`, `none`, `fromUndefined`, `fromNullable` | create explicit presence/absence |
 | Narrowing/elimination | `isSome`, `isNone`, `match` | inspect the branch |
 | Composition | `map`, `andThen`, `orElse`, `flatten`, `filter` | transform while preserving Option meaning |
-| Observation/fallback | `inspect`, `unwrapOr`, `unwrapOrElse` | observe or leave Option |
+| Fallback | `unwrapOr`, `unwrapOrElse` | leave Option with an explicit fallback |
 | Collection | `all` | combine already-materialized Options |
 | JS boundary | `toUndefined`, `toNullable` | project None to a conventional JS sentinel |
 
@@ -434,10 +433,11 @@ Operation groups:
 
 `some(undefined)` is Some; `fromUndefined(undefined)` is None.
 
-`inspect` is synchronous and returns the original Option.
-
 `Option.all` preserves finite tuple positions. Typed input arrays must be
 readonly; broad `readonly Option<T>[]` inputs remain valid.
+
+Side-effect-only observation uses ordinary JavaScript branching rather than a
+public `inspect` helper.
 
 ## `selaws/validation`
 
@@ -462,8 +462,6 @@ isInvalid
 match
 map
 mapError
-inspect
-inspectErrors
 unwrapOr
 unwrapOrElse
 all
@@ -480,7 +478,7 @@ Operation groups:
 | Formation | `valid`, `invalid` | construct valid data or non-empty issues |
 | Narrowing/elimination | `isValid`, `isInvalid`, `match` | inspect the branch |
 | Mapping | `map`, `mapError` | transform values or every issue |
-| Observation/fallback | `inspect`, `inspectErrors`, `unwrapOr`, `unwrapOrElse` | observe or leave Validation |
+| Fallback | `unwrapOr`, `unwrapOrElse` | leave Validation with an explicit fallback |
 | Accumulation | `all`, `struct` | combine independent available checks |
 | Conversion | `fromOption`, `fromResult` | introduce Validation meaning at an explicit boundary |
 
@@ -528,8 +526,6 @@ mapError
 andThen
 orElse
 flatten
-inspect
-inspectError
 unwrapOr
 unwrapOrElse
 all
@@ -545,7 +541,7 @@ Operation groups:
 | Formation | `ok`, `err` | construct recoverable success/error data |
 | Narrowing/elimination | `isOk`, `isErr`, `match` | inspect the branch |
 | Composition | `map`, `mapError`, `andThen`, `orElse`, `flatten` | transform or sequence Result data |
-| Observation/fallback | `inspect`, `inspectError`, `unwrapOr`, `unwrapOrElse` | observe or leave Result |
+| Fallback | `unwrapOr`, `unwrapOrElse` | leave Result with an explicit fallback |
 | Collection | `all` | combine already-materialized Results, stopping at the first Err |
 | Conversion | `fromOption`, `fromValidation` | introduce Result meaning at an explicit boundary |
 

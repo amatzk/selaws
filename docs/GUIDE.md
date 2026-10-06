@@ -21,6 +21,29 @@ Start with the question the code must answer.
 This usually gives a smaller design than starting with “I need a union type” or
 “I need a state machine”.
 
+A useful reading classification is:
+
+```text
+Value / relation laws
+  Identity
+  Evidence
+  Protocol
+  Variant
+
+Outcome algebras
+  Option
+  Validation
+  Result
+
+Shared laws
+  Match
+  declaration compatibility
+```
+
+This classification is only a navigation aid. It does not introduce
+inheritance, merge semantic owners, or imply dependencies between them; package
+co-location likewise does not merge their laws.
+
 ### Shared Match law: one elimination model, owner-scoped syntax
 
 Option, Result, Validation, and Variant are different semantic owners, but all
@@ -299,7 +322,7 @@ Use `andThen` when the next function itself returns Result.
 
 Form validation often has two phases:
 
-1. inspect independent inputs and report every issue;
+1. validate independent inputs and report every issue;
 2. after valid input exists, perform dependent work that can fail.
 
 The owner boundary can remain explicit.

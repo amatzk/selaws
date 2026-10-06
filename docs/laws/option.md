@@ -86,10 +86,17 @@ const pair = Option.all([
 ] as const);
 ```
 
-## Observation and projection
+## Projection and ordinary observation
 
-`inspect` synchronously observes Some and returns the original Option.
-Promise-like observer completion is outside that synchronous contract.
+Side-effect-only observation stays in ordinary JavaScript control flow:
+
+```ts
+if (option.some) {
+  observe(option.value);
+}
+```
+
+Option does not add a fluent observation callback law.
 
 `unwrapOr` and `unwrapOrElse` leave Option by choosing a fallback value.
 

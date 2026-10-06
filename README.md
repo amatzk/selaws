@@ -21,6 +21,29 @@ carry recoverable failures without changing ordinary JavaScript control flow.
 Each owner has its own laws and focused import path. The package does not add a
 workflow runtime, async carrier, schema decoder, or application state store.
 
+A useful reading classification is:
+
+```text
+Value / relation laws
+  Identity
+  Evidence
+  Protocol
+  Variant
+
+Outcome algebras
+  Option
+  Validation
+  Result
+
+Shared laws
+  Match
+  declaration compatibility
+```
+
+This classification is only a navigation aid. It does not introduce
+inheritance, merge semantic owners, or imply dependencies between them; package
+co-location likewise does not merge their laws.
+
 Match is a first-class shared elimination law across the sum-like owners, not a
 separate owner or namespace:
 
@@ -37,6 +60,9 @@ the selected branch, invokes it without a library-defined `this` receiver,
 and preserves ordinary return, throw, and Promise completion.
 
 ## Install
+
+Selaws is pre-1.0. During 0.x, APIs and semantics may change incompatibly;
+deprecated compatibility layers are intentionally kept minimal.
 
 ```sh
 npm install selaws

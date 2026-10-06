@@ -74,15 +74,6 @@ test("Option algebra touches only the selected branch", () => {
     4,
   );
 
-  assert.strictEqual(
-    Option.inspect(present, () => undefined),
-    present,
-  );
-  assert.strictEqual(
-    Option.inspect(absent, () => assert.fail()),
-    absent,
-  );
-
   assert.equal(Option.unwrapOr(present, 7), 2);
   assert.equal(Option.unwrapOr(absent, 7), 7);
   assert.equal(
@@ -131,63 +122,6 @@ test("Option filter, flatten, all, and nullable exits preserve their laws", () =
   assert.equal(Option.toUndefined(absent), undefined);
   assert.equal(Option.toNullable(Option.some(undefined)), undefined);
   assert.equal(Option.toNullable(absent), null);
-});
-
-test("Option and Validation observation reject Promise-like runtime completion", () => {
-  assert.throws(
-    () => Option.inspect(Option.some(1), () => Promise.resolve()),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Option.inspect() expects a synchronous observer.",
-  );
-
-  const callableThen = {};
-  Object.defineProperty(callableThen, ["th", "en"].join(""), {
-    configurable: true,
-    value: () => 1,
-  });
-  assert.throws(
-    () => Option.inspect(Option.some(1), () => callableThen),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Option.inspect() expects a synchronous observer.",
-  );
-
-  assert.throws(
-    () => Validation.inspect(Validation.valid(1), () => Promise.resolve()),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Validation.inspect() expects a synchronous observer.",
-  );
-
-  assert.throws(
-    () => Validation.inspectErrors(Validation.invalid("bad"), () => Promise.resolve()),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Validation.inspectErrors() expects a synchronous observer.",
-  );
-
-  const proxyThenable = new Proxy(
-    {},
-    {
-      get(target, key, receiver) {
-        return key === "then" ? () => undefined : Reflect.get(target, key, receiver);
-      },
-    },
-  );
-
-  assert.throws(
-    () => Option.inspect(Option.some(1), () => proxyThenable),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Option.inspect() expects a synchronous observer.",
-  );
-  assert.throws(
-    () => Validation.inspect(Validation.valid(1), () => proxyThenable),
-    (caught) =>
-      caught instanceof TypeError &&
-      caught.message === "Validation.inspect() expects a synchronous observer.",
-  );
 });
 
 test("Option callbacks leave thrown exceptions abrupt", () => {
@@ -552,17 +486,8 @@ test("Validation handles large issue collections without argument spreading", ()
   assert.equal(record.errors.at(-1), issues.at(-1));
 });
 
-test("Validation observation and total elimination expose the whole error group", () => {
+test("Validation fallback exposes the whole error group", () => {
   const failure = Validation.invalid("a", "b");
-  let observed;
-
-  assert.strictEqual(
-    Validation.inspectErrors(failure, (errors) => {
-      observed = errors;
-    }),
-    failure,
-  );
-  assert.strictEqual(observed, failure.errors);
 
   assert.equal(Validation.unwrapOr(Validation.valid(2), 9), 2);
   assert.equal(Validation.unwrapOr(failure, 9), 9);

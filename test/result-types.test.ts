@@ -7,8 +7,6 @@ import {
   type Err,
   err,
   flatten,
-  inspect,
-  inspectError,
   map,
   mapError,
   type Ok,
@@ -110,46 +108,9 @@ type _BroadResultList = Assert<
   Equal<typeof broadResultList, ResultValue<readonly number[], "issue">>
 >;
 
-inspect(input, (value) => {
-  void value;
-});
-
-// @ts-expect-error inspect must not silently discard a Promise
-inspect(input, async (value) => {
-  void value;
-});
-
-declare const maybeAsyncObserver: (value: number) => void | Promise<void>;
-// @ts-expect-error inspect rejects callbacks that may return a PromiseLike
-inspect(input, maybeAsyncObserver);
-
 declare const nonCallableThenCompletion: { then: string };
 declare const callableThenCompletion: { then(): number };
 declare const broadCallableThenCompletion: { then: FunctionConstructor["prototype"] };
-inspect(input, () => nonCallableThenCompletion);
-// @ts-expect-error inspect rejects callable-then completions
-inspect(input, () => callableThenCompletion);
-// @ts-expect-error inspect rejects broad Function-typed then completions
-inspect(input, () => broadCallableThenCompletion);
-
-function overloadedObserver(value: number): Promise<void>;
-function overloadedObserver(value: string): void;
-function overloadedObserver(value: number | string): Promise<void> | undefined {
-  return typeof value === "number" ? Promise.resolve() : undefined;
-}
-
-// @ts-expect-error inspect checks the overload applicable to the Result value
-inspect(input, overloadedObserver);
-
-declare const maybeAsyncErrorObserver: (error: "parse") => void | Promise<void>;
-// @ts-expect-error inspectError rejects callbacks that may return a PromiseLike
-inspectError(input, maybeAsyncErrorObserver);
-
-inspectError(input, () => nonCallableThenCompletion);
-// @ts-expect-error inspectError rejects callable-then completions
-inspectError(input, () => callableThenCompletion);
-// @ts-expect-error inspectError rejects broad Function-typed then completions
-inspectError(input, () => broadCallableThenCompletion);
 
 const captured = attempt(
   () => 1,
