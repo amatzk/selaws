@@ -144,8 +144,6 @@ import {
   ok,
   Result,
   type Result as ResultValue,
-  wrap,
-  wrapAsync,
 } from "selaws/result";
 import {
   invalid,
@@ -629,10 +627,20 @@ const rootOption: RootOptionValue<number> = RootOption.some(1);
 const rootValidation: RootValidationValue<number, never> = RootValidation.valid(1);
 
 type _ResultFacade = Expect<Equal<typeof rootResult, ResultValue<number, never>>>;
+type _RootAndFocusedResultFacade = Expect<Equal<typeof RootResult, typeof Result>>;
 type _OptionFacade = Expect<Equal<typeof rootOption, OptionValue<number>>>;
 type _ValidationFacade = Expect<
   Equal<typeof rootValidation, ValidationValue<number, never>>
 >;
+
+const rootCaptured = RootResult.attempt(() => 1 as const, String);
+type _RootCaptured = Expect<Equal<typeof rootCaptured, ResultValue<1, string>>>;
+const rootCapturedAsync = RootResult.attemptAsync(async () => 1, String);
+type _RootCapturedAsync = Expect<
+  Equal<typeof rootCapturedAsync, Promise<ResultValue<number, string>>>
+>;
+const rootUnwrapped = RootResult.orThrow(rootResult, () => new Error("unused"));
+type _RootOrThrow = Expect<Equal<typeof rootUnwrapped, number>>;
 
 const packageMutableOptionTuple: [OptionValue<number>] = [some(1)];
 // @ts-expect-error finite positional tuples must be readonly at the all boundary
@@ -689,29 +697,8 @@ function captureGeneric<T extends string>(value: T): ResultValue<T, string> {
   return attempt(() => value, String);
 }
 
-function wrapGeneric<T extends { readonly value: number }>(
-  value: T,
-): ResultValue<T, string> {
-  const safe = wrap((input: T) => input, String);
-  return safe(value);
-}
-
 const genericCaptured: ResultValue<"literal", string> =
   captureGeneric("literal" as const);
-const genericWrapped: ResultValue<Readonly<{ value: 1; tag: "x" }>, string> =
-  wrapGeneric({ value: 1, tag: "x" } as const);
-
-declare const packageUnionSync:
-  | ((value: number) => number)
-  | ((value: string) => string);
-// @ts-expect-error a runtime union of callables is not an overload set
-wrap(packageUnionSync, String);
-
-declare const packageUnionAsync:
-  | ((value: number) => Promise<number>)
-  | ((value: string) => Promise<string>);
-// @ts-expect-error a runtime union of async callables is not an overload set
-wrapAsync(packageUnionAsync, String);
 
 type PackageFunctionThenable = (() => void) & { then(): void };
 declare const packageFunctionThenable: PackageFunctionThenable;
@@ -784,7 +771,6 @@ void Result;
 void Validation;
 void captured;
 void genericCaptured;
-void genericWrapped;
 void packageStruct;
 void absent;
 void present;
@@ -921,8 +907,6 @@ const expectedFocusedSurfaces = new Map([
       "orThrow",
       "unwrapOr",
       "unwrapOrElse",
-      "wrap",
-      "wrapAsync",
     ],
   ],
 ]);
@@ -941,6 +925,13 @@ assert.equal(Object.hasOwn(Variant, "Case"), false);
 assert.strictEqual(Variant.unit, VariantCopy.unit);
 assert.strictEqual(Variant.payload(), VariantCopy.payload());
 assert.strictEqual(root.Result, Result);
+assert.deepEqual(
+  Object.keys(Result).sort(),
+  expectedFocusedSurfaces
+    .get("selaws/result")
+    .filter((name) => name !== "Result")
+    .sort(),
+);
 assert.strictEqual(root.Validation, Validation);
 
 assert.throws(

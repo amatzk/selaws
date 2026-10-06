@@ -662,8 +662,8 @@ const parsed = attempt(
 Use `attemptAsync` for a Promise-returning boundary whose invocation or
 rejection should become recoverable Result data.
 
-`wrap` and `wrapAsync` apply those boundaries to reusable functions while
-preserving arguments and `this`.
+Keep the capture call at the invocation boundary rather than hiding it behind a
+reusable wrapper function.
 
 Use `orThrow` when an application boundary intentionally converts Err back to
 an abrupt JavaScript completion.

@@ -1,7 +1,7 @@
 // @ts-expect-error Match is a shared law, not a root public namespace or dispatcher
 import { Match as RootMatch } from "../src/index.js";
 import { Option, type Option as OptionValue } from "../src/option.js";
-import { Result, type Result as ResultValue } from "../src/result/core.js";
+import { Result, type Result as ResultValue } from "../src/result/index.js";
 import {
   Validation,
   type ValidationIssues,

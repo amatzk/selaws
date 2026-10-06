@@ -46,7 +46,6 @@ ValidationIssue
 Result
 Ok
 Err
-AsyncResult
 ResultValue
 ResultError
 ```
@@ -68,9 +67,10 @@ const maybe = Option.some(1);
 const success = Result.ok(1);
 ```
 
-Result capture helpers such as `attempt` and `wrap` live on
-`selaws/result`; they are explicit JavaScript control-boundary operations, not
-members of the root Result data facade.
+Result's explicit JavaScript control boundaries are available as
+`Result.attempt`, `Result.attemptAsync`, and `Result.orThrow` on the
+owner-qualified facade. The same operations remain standalone exports from
+`selaws/result` for focused imports.
 
 ## Shared Match law
 
@@ -506,7 +506,6 @@ Types:
 Ok
 Err
 Result
-AsyncResult
 ResultValue
 ResultError
 ```
@@ -556,25 +555,23 @@ Err value.
 
 ### JavaScript control boundaries
 
-Focused-only runtime exports:
+Owner-qualified facade members and focused standalone exports:
 
 ```text
-attempt
-attemptAsync
-wrap
-wrapAsync
-orThrow
+Result.attempt       / attempt
+Result.attemptAsync  / attemptAsync
+Result.orThrow       / orThrow
 ```
 
 `attempt(read, mapThrown)` captures one synchronous invocation boundary.
 Thrown values become Err through `mapThrown`. A Promise-like return violates
 the synchronous contract and raises `TypeError`.
 
-`attemptAsync(read, mapThrown)` captures invocation throws and Promise
+`attemptAsync(read, mapThrown)` captures invocation throws and Promise-like
 rejection into `Promise<Result<...>>`.
 
-`wrap` and `wrapAsync` produce reusable wrapped functions while preserving
-arguments and `this`.
+The capture boundary remains visible at each `attempt` / `attemptAsync`
+invocation; Result does not expose reusable wrapper factories.
 
 `orThrow(result, mapErrorToThrowable)` returns the Ok value or explicitly maps
 Err back to a thrown JavaScript value.

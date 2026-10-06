@@ -17,8 +17,6 @@ import {
   Result,
   unwrapOr,
   unwrapOrElse,
-  wrap,
-  wrapAsync,
 } from "../dist/result/index.js";
 
 test("constructors produce structural, unfrozen data", () => {
@@ -258,48 +256,6 @@ test("attemptAsync captures invocation throws and Promise rejection", async () =
     ),
     ok(err("domain")),
   );
-});
-
-test("wrap and wrapAsync preserve arguments and this", async () => {
-  const safe = wrap(function read(delta) {
-    return this.base + delta;
-  }, String);
-
-  const safeAsync = wrapAsync(async function read(delta) {
-    return this.base + delta;
-  }, String);
-
-  assert.deepEqual(safe.call({ base: 2 }, 3), ok(5));
-  assert.deepEqual(await safeAsync.call({ base: 4 }, 5), ok(9));
-
-  function shadowedApply(delta) {
-    return this.base + delta;
-  }
-  Object.defineProperty(shadowedApply, "apply", {
-    configurable: true,
-    value() {
-      return -1;
-    },
-  });
-
-  async function shadowedAsyncApply(delta) {
-    return this.base + delta;
-  }
-  Object.defineProperty(shadowedAsyncApply, "apply", {
-    configurable: true,
-    value() {
-      return Promise.resolve(-1);
-    },
-  });
-
-  assert.deepEqual(wrap(shadowedApply, String).call({ base: 2 }, 3), ok(5));
-  assert.deepEqual(
-    await wrapAsync(shadowedAsyncApply, String).call({ base: 4 }, 5),
-    ok(9),
-  );
-
-  const safeJsonParse = wrap(JSON.parse, String);
-  assert.deepEqual(safeJsonParse('{"value":1}'), ok({ value: 1 }));
 });
 
 test("orThrow is the explicit recoverable-to-abrupt adapter", () => {

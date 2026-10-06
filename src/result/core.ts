@@ -18,9 +18,6 @@ export type Err<E> = Readonly<{
 /** Recoverable success or error with fail-fast composition. */
 export type Result<T, E> = Ok<T> | Err<E>;
 
-/** Native Promise composition around a Result value. */
-export type AsyncResult<T, E> = Promise<Result<T, E>>;
-
 /** Extracts the success value type from a Result union. */
 export type ResultValue<R> = R extends Ok<infer T> ? T : never;
 
@@ -154,40 +151,3 @@ export const fromValidation = <T, E>(
   validation.valid
     ? ok(validation.value)
     : (err(validation.issues) as Result<T, ValidationResultError<E>>);
-
-type ResultFacade = Readonly<{
-  all: typeof all;
-  andThen: typeof andThen;
-  err: typeof err;
-  flatten: typeof flatten;
-  fromOption: typeof fromOption;
-  fromValidation: typeof fromValidation;
-  isErr: typeof isErr;
-  isOk: typeof isOk;
-  map: typeof map;
-  mapError: typeof mapError;
-  match: typeof match;
-  ok: typeof ok;
-  orElse: typeof orElse;
-  unwrapOr: typeof unwrapOr;
-  unwrapOrElse: typeof unwrapOrElse;
-}>;
-
-/** Facade for Result construction, transformation, elimination, and collection. */
-export const Result: ResultFacade = {
-  all,
-  andThen,
-  err,
-  flatten,
-  fromOption,
-  fromValidation,
-  isErr,
-  isOk,
-  map,
-  mapError,
-  match,
-  ok,
-  orElse,
-  unwrapOr,
-  unwrapOrElse,
-};

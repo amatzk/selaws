@@ -165,7 +165,7 @@ returns the selected handler completion unchanged
 ```
 
 Therefore a returned Promise remains a native Promise and a thrown handler
-remains abrupt. Match does not capture, await, wrap, or normalize completion.
+remains abrupt. Match does not capture, await, or normalize completion.
 
 Selected own-data handler resolution is shared runtime Match law. Runtime
 validation beyond that shared elimination boundary remains owner-specific.
@@ -291,7 +291,8 @@ Promise<Option<T>>
 Promise<Validation<T, E>>
 ```
 
-Selaws does not introduce an asynchronous carrier wrapper.
+Selaws does not introduce an asynchronous carrier wrapper or an `AsyncResult`
+alias. Native `Promise<Result<T, E>>` is the canonical asynchronous spelling.
 
 Result does not introduce a generator or asynchronous control-flow runtime.
 Dependent async composition remains ordinary JavaScript control flow over

@@ -1,6 +1,6 @@
 import { Option as OptionFacade } from "./option.js";
 import { Protocol as ProtocolFacade } from "./protocol.js";
-import { Result as ResultFacade } from "./result/core.js";
+import { Result as ResultFacade } from "./result/index.js";
 import { Validation as ValidationFacade } from "./validation.js";
 import { Variant as VariantFacade } from "./variant.js";
 
@@ -48,7 +48,6 @@ export type Validation<T, E> = import("./validation.js").Validation<T, E>;
 export const Validation: typeof ValidationFacade = ValidationFacade;
 
 export type {
-  AsyncResult,
   Err,
   Ok,
   ResultError,

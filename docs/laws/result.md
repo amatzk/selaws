@@ -71,7 +71,7 @@ success/error; Variant owns the closed error vocabulary.
 
 ## Abrupt capture
 
-`attempt` and `wrap` capture one synchronous invocation boundary.
+`attempt` captures one synchronous invocation boundary at the call site.
 
 ```ts
 const parsed = attempt(
@@ -90,11 +90,12 @@ A returned Promise-like value, meaning a non-null object or function with a
 callable `then`, violates the synchronous boundary and raises `TypeError`.
 That contract error is outside the user's thrown-value mapper.
 
-`wrap` preserves the wrapped function's arguments and `this`.
+`attemptAsync` owns invocation throws plus rejection from the returned
+Promise-like value. Its successful payload follows native `Awaited` semantics.
 
-`attemptAsync` and `wrapAsync` own invocation throws plus rejection from the
-returned Promise-like value. Their successful payload follows native
-`Awaited` semantics.
+Selaws does not provide reusable capture-wrapper factories. Keeping the capture
+operation at the invocation site makes the abrupt-to-recoverable conversion
+visible where it occurs.
 
 Mapper throws and ordinary Result callback throws remain abrupt.
 
@@ -105,6 +106,9 @@ data-level `andThen` combinator.
 
 Result does not define a generator protocol, asynchronous control runtime,
 implicit early-return syntax, scheduler, retry policy, or cancellation model.
+
+There is no `AsyncResult` alias; the canonical type remains
+`Promise<Result<T, E>>`.
 
 For asynchronous work, Promise remains the scheduling and awaiting owner:
 
