@@ -16,17 +16,3 @@ export type NotPromiseLike<T> =
     : true extends (T extends unknown ? HasCallableThen<T> : never)
       ? never
       : T;
-
-export const isPromiseLike = (value: unknown): value is PromiseLike<unknown> => {
-  if ((typeof value !== "object" && typeof value !== "function") || value === null) {
-    return false;
-  }
-
-  return typeof (value as { readonly then?: unknown }).then === "function";
-};
-
-export const assertNotPromiseLike = (value: unknown, message: string): void => {
-  if (isPromiseLike(value)) {
-    throw new TypeError(message);
-  }
-};

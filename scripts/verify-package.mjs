@@ -1184,6 +1184,35 @@ assert.throws(
 );
 assert.deepEqual(Result.ok(1), { ok: true, value: 1 });
 
+const packageThenFailure = new Error("package then getter");
+const packageThenKey = ["th", "en"].join("");
+let packageThenReads = 0;
+let packageMapperCalls = 0;
+const packageThrowingThen = {};
+Object.defineProperty(packageThrowingThen, packageThenKey, {
+  get() {
+    packageThenReads += 1;
+    throw packageThenFailure;
+  },
+});
+assert.throws(
+  () =>
+    Result.attempt(
+      () => packageThrowingThen,
+      () => {
+        packageMapperCalls += 1;
+        return "mapped";
+      },
+    ),
+  (caught) =>
+    caught instanceof TypeError &&
+    caught.message ===
+      "attempt() could not establish synchronous completion because reading the returned value's then property threw." &&
+    caught.cause === packageThenFailure,
+);
+assert.equal(packageThenReads, 1);
+assert.equal(packageMapperCalls, 0);
+
 for (const [name, invoke, selectedKey, otherKey] of [
   [
     "Option",

@@ -351,9 +351,10 @@ const parsed = attempt(
 );
 ```
 
-`attempt` and `attemptAsync` translate explicit abrupt boundaries into Result
-data. `orThrow` performs the reverse boundary when an Err should become a
-thrown JavaScript value.
+`attempt` and `attemptAsync` translate the caller-side failures each boundary
+owns into Result data. Contract errors raised by `attempt` while enforcing its
+synchronous boundary remain abrupt. `orThrow` performs the reverse boundary
+when an Err should become a thrown JavaScript value.
 
 Promise remains the async owner:
 

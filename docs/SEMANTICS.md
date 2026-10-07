@@ -276,10 +276,11 @@ remains abrupt unless an explicit Result capture boundary owns the conversion.
 Side-effect-only observation stays in ordinary JavaScript control flow rather
 than introducing a separate carrier callback law.
 
-Result capture helpers are the explicit boundary that maps thrown or rejected
-JavaScript completion into recoverable Result error data. Synchronous
-`attempt` rejects Promise-like completion rather than silently treating an
-asynchronous operation as synchronous.
+Result capture helpers are the explicit boundary that maps caller-thrown or
+rejected JavaScript completion into recoverable Result error data. Synchronous
+`attempt` separately rejects a callable returned `then`, and failure of its
+own one-time post-return `then` observation is a Result-owned contract
+`TypeError`; neither boundary-check failure becomes recoverable Result data.
 
 ## 8. Async law
 

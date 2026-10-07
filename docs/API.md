@@ -570,12 +570,16 @@ Result.attemptAsync  / attemptAsync
 Result.orThrow       / orThrow
 ```
 
-`attempt(read, mapThrown)` captures one synchronous invocation boundary.
-Thrown values become Err through `mapThrown`. A Promise-like return violates
-the synchronous contract and raises `TypeError`.
+`attempt(read, mapThrown)` captures throws from the synchronous invocation as
+Err through `mapThrown`. After a normal return it observes `then` once: a
+callable `then` raises `TypeError("attempt() expects a synchronous thunk.")`,
+while an exception from reading `then` raises a distinct `TypeError` whose
+`cause` is that original exception. Neither contract error enters
+`mapThrown`; the observation is only a boundary-time guarantee.
 
-`attemptAsync(read, mapThrown)` captures invocation throws and Promise-like
-rejection into `Promise<Result<...>>`.
+`attemptAsync(read, mapThrown)` captures invocation throws and native
+Promise-like assimilation/rejection into `Promise<Result<...>>`; it does not
+perform the synchronous `then` pre-check.
 
 The capture boundary remains visible at each `attempt` / `attemptAsync`
 invocation; Result does not expose reusable wrapper factories.

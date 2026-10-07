@@ -1,10 +1,31 @@
-import { assertNotPromiseLike, type NotPromiseLike } from "../internal/promise-like.js";
+import type { NotPromiseLike } from "../internal/promise-like.js";
 import { err, ok, type Result } from "./core.js";
 
 type SyncPrimitive = string | number | boolean | bigint | symbol | null | undefined;
 
 type NonThenableObject = object & {
   readonly then?: never;
+};
+
+const assertSynchronousCompletion = (value: unknown): void => {
+  if ((typeof value !== "object" && typeof value !== "function") || value === null) {
+    return;
+  }
+
+  let then: unknown;
+
+  try {
+    then = Reflect.get(value, "then");
+  } catch (cause) {
+    throw new TypeError(
+      "attempt() could not establish synchronous completion because reading the returned value's then property threw.",
+      { cause },
+    );
+  }
+
+  if (typeof then === "function") {
+    throw new TypeError("attempt() expects a synchronous thunk.");
+  }
 };
 
 const attemptRuntime = <T, E>(
@@ -19,7 +40,7 @@ const attemptRuntime = <T, E>(
     return err(mapThrown(caught));
   }
 
-  assertNotPromiseLike(value, "attempt() expects a synchronous thunk.");
+  assertSynchronousCompletion(value);
   return ok(value);
 };
 
@@ -27,8 +48,9 @@ const attemptRuntime = <T, E>(
  * Captures one synchronous invocation boundary as Result.
  *
  * Thrown values are mapped from unknown into the caller's recoverable error
- * type. Promise-like returns are rejected as a sync-boundary contract error.
- * A thrown mapper remains an abrupt JavaScript completion.
+ * type. A callable returned `then`, or failure while observing `then`, is a
+ * sync-boundary contract error outside that mapper. A thrown mapper remains an
+ * abrupt JavaScript completion.
  */
 export function attempt<T extends SyncPrimitive, E>(
   read: () => T,

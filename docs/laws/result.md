@@ -86,12 +86,24 @@ const parsed = attempt(
 The caller supplies an `unknown -> E` mapper. A returned Result or other
 ordinary value is success data; capture does not flatten it.
 
-A returned Promise-like value, meaning a non-null object or function with a
-callable `then`, violates the synchronous boundary and raises `TypeError`.
-That contract error is outside the user's thrown-value mapper.
+After `read()` returns normally, `attempt` observes the returned value's
+`then` property once for non-null object and function values. A callable
+`then` violates the synchronous boundary and raises
+`TypeError("attempt() expects a synchronous thunk.")`.
 
-`attemptAsync` owns invocation throws plus rejection from the returned
-Promise-like value. Its successful payload follows native `Awaited` semantics.
+If that property observation itself throws, `attempt` raises a distinct
+`TypeError` stating that synchronous completion could not be established and
+retains the original thrown value as its `cause`. Neither synchronous
+contract error is passed to the caller's thrown-value mapper.
+
+This observation establishes only the returned value's state at that boundary;
+it does not guarantee that a mutable object, accessor, or Proxy cannot become
+thenable later.
+
+`attemptAsync` does not perform this synchronous pre-check. Native `await`
+owns Promise-like assimilation, so an abrupt completion while reading or
+assimilating `then` is captured by `attemptAsync` and passed to
+`mapThrown`. Its successful payload follows native `Awaited` semantics.
 
 Selaws does not provide reusable capture-wrapper factories. Keeping the capture
 operation at the invocation site makes the abrupt-to-recoverable conversion

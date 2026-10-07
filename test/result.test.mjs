@@ -168,6 +168,7 @@ test("attempt captures only its explicit abrupt boundary", () => {
   );
 
   let mapperCalls = 0;
+  const thenKey = ["th", "en"].join("");
   assert.throws(
     () =>
       attempt(
@@ -184,7 +185,7 @@ test("attempt captures only its explicit abrupt boundary", () => {
   assert.equal(mapperCalls, 0);
 
   const callableThen = {};
-  Object.defineProperty(callableThen, ["th", "en"].join(""), {
+  Object.defineProperty(callableThen, thenKey, {
     configurable: true,
     value: () => 1,
   });
@@ -203,11 +204,30 @@ test("attempt captures only its explicit abrupt boundary", () => {
   );
   assert.equal(mapperCalls, 0);
 
+  const callableFunctionThen = () => undefined;
+  Object.defineProperty(callableFunctionThen, thenKey, {
+    value: () => undefined,
+  });
+  assert.throws(
+    () =>
+      attempt(
+        () => callableFunctionThen,
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === "attempt() expects a synchronous thunk.",
+  );
+  assert.equal(mapperCalls, 0);
+
   const proxyThenable = new Proxy(
     {},
     {
       get(target, key, receiver) {
-        return key === "then" ? () => undefined : Reflect.get(target, key, receiver);
+        return key === thenKey ? () => undefined : Reflect.get(target, key, receiver);
       },
     },
   );
@@ -224,6 +244,133 @@ test("attempt captures only its explicit abrupt boundary", () => {
       caught instanceof TypeError &&
       caught.message === "attempt() expects a synchronous thunk.",
   );
+  assert.equal(mapperCalls, 0);
+
+  const observationMessage =
+    "attempt() could not establish synchronous completion because reading the returned value's then property threw.";
+
+  const ownGetterFailure = Symbol("own getter");
+  let ownGetterReads = 0;
+  const throwingOwnGetter = {};
+  Object.defineProperty(throwingOwnGetter, thenKey, {
+    get() {
+      ownGetterReads += 1;
+      throw ownGetterFailure;
+    },
+  });
+  assert.throws(
+    () =>
+      attempt(
+        () => throwingOwnGetter,
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === observationMessage &&
+      caught.cause === ownGetterFailure,
+  );
+  assert.equal(ownGetterReads, 1);
+  assert.equal(mapperCalls, 0);
+
+  const inheritedGetterFailure = new Error("inherited getter");
+  let inheritedGetterReads = 0;
+  const inheritedGetterPrototype = {};
+  Object.defineProperty(inheritedGetterPrototype, thenKey, {
+    get() {
+      inheritedGetterReads += 1;
+      throw inheritedGetterFailure;
+    },
+  });
+  const throwingInheritedGetter = Object.create(inheritedGetterPrototype);
+  assert.throws(
+    () =>
+      attempt(
+        () => throwingInheritedGetter,
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === observationMessage &&
+      caught.cause === inheritedGetterFailure,
+  );
+  assert.equal(inheritedGetterReads, 1);
+  assert.equal(mapperCalls, 0);
+
+  const proxyGetFailure = new Error("proxy get");
+  let proxyGetReads = 0;
+  const throwingProxyGet = new Proxy(
+    {},
+    {
+      get(target, key, receiver) {
+        if (key === thenKey) {
+          proxyGetReads += 1;
+          throw proxyGetFailure;
+        }
+        return Reflect.get(target, key, receiver);
+      },
+    },
+  );
+  assert.throws(
+    () =>
+      attempt(
+        () => throwingProxyGet,
+        () => {
+          mapperCalls += 1;
+          return "mapped";
+        },
+      ),
+    (caught) =>
+      caught instanceof TypeError &&
+      caught.message === observationMessage &&
+      caught.cause === proxyGetFailure,
+  );
+  assert.equal(proxyGetReads, 1);
+  assert.equal(mapperCalls, 0);
+
+  let nonCallableReads = 0;
+  const nonCallableAccessor = {};
+  Object.defineProperty(nonCallableAccessor, thenKey, {
+    get() {
+      nonCallableReads += 1;
+      return "not callable";
+    },
+  });
+  const nonCallableResult = attempt(
+    () => nonCallableAccessor,
+    () => {
+      mapperCalls += 1;
+      return "mapped";
+    },
+  );
+  assert.deepEqual(nonCallableResult, ok(nonCallableAccessor));
+  assert.equal(nonCallableReads, 1);
+  assert.equal(mapperCalls, 0);
+
+  let changingReads = 0;
+  const changingAccessor = {};
+  Object.defineProperty(changingAccessor, thenKey, {
+    get() {
+      changingReads += 1;
+      return changingReads === 1 ? undefined : () => undefined;
+    },
+  });
+  const changingResult = attempt(
+    () => changingAccessor,
+    () => {
+      mapperCalls += 1;
+      return "mapped";
+    },
+  );
+  assert.deepEqual(changingResult, ok(changingAccessor));
+  assert.equal(changingReads, 1);
+  assert.equal(typeof Reflect.get(changingAccessor, thenKey), "function");
+  assert.equal(changingReads, 2);
   assert.equal(mapperCalls, 0);
 });
 
@@ -256,6 +403,32 @@ test("attemptAsync captures invocation throws and Promise rejection", async () =
     ),
     ok(err("domain")),
   );
+
+  const assimilationFailure = new Error("then getter");
+  const thenKey = ["th", "en"].join("");
+  let assimilationReads = 0;
+  let mappedAssimilation = 0;
+  const throwingThen = {};
+  Object.defineProperty(throwingThen, thenKey, {
+    get() {
+      assimilationReads += 1;
+      throw assimilationFailure;
+    },
+  });
+
+  assert.deepEqual(
+    await attemptAsync(
+      () => throwingThen,
+      (caught) => {
+        assert.strictEqual(caught, assimilationFailure);
+        mappedAssimilation += 1;
+        return "assimilation";
+      },
+    ),
+    err("assimilation"),
+  );
+  assert.equal(assimilationReads, 1);
+  assert.equal(mappedAssimilation, 1);
 });
 
 test("orThrow is the explicit recoverable-to-abrupt adapter", () => {
