@@ -119,6 +119,26 @@ type _SymbolStruct = Assert<
   Equal<typeof symbolRecord, Validation<Readonly<{ [symbolKey]: 1 }>, never>>
 >;
 
+const uncertainKey: unique symbol = Symbol("uncertain");
+declare const uncertainName: Validation<string, "name">;
+declare const uncertainSymbol: Validation<number, "symbol">;
+const uncertainRecord = struct([
+  ["name", uncertainName],
+  [uncertainKey, uncertainSymbol],
+]);
+type _UncertainStruct = Assert<
+  Equal<
+    typeof uncertainRecord,
+    Validation<
+      Readonly<{
+        name: string;
+        [uncertainKey]: number;
+      }>,
+      "name" | "symbol"
+    >
+  >
+>;
+
 declare const broadEntries: readonly (readonly [
   string,
   Validation<unknown, unknown>,
@@ -138,6 +158,118 @@ struct([[broadSymbolKey, valid(1)]]);
 struct([
   ["name", valid("first")],
   ["name", valid("second")],
+]);
+
+const uniqueBelowStructChunk = struct([
+  ["below0", valid(0)],
+  ["below1", valid(1)],
+  ["below2", valid(2)],
+  ["below3", valid(3)],
+  ["below4", valid(4)],
+  ["below5", valid(5)],
+  ["below6", valid(6)],
+  ["below7", valid(7)],
+  ["below8", valid(8)],
+]);
+const uniqueAtStructChunk = struct([
+  ["at0", valid(0)],
+  ["at1", valid(1)],
+  ["at2", valid(2)],
+  ["at3", valid(3)],
+  ["at4", valid(4)],
+  ["at5", valid(5)],
+  ["at6", valid(6)],
+  ["at7", valid(7)],
+  ["at8", valid(8)],
+  ["at9", valid(9)],
+]);
+const uniqueAboveStructChunk = struct([
+  ["above0", valid(0)],
+  ["above1", valid(1)],
+  ["above2", valid(2)],
+  ["above3", valid(3)],
+  ["above4", valid(4)],
+  ["above5", valid(5)],
+  ["above6", valid(6)],
+  ["above7", valid(7)],
+  ["above8", valid(8)],
+  ["above9", valid(9)],
+  ["above10", valid(10)],
+]);
+void uniqueBelowStructChunk;
+void uniqueAtStructChunk;
+void uniqueAboveStructChunk;
+
+// @ts-expect-error first/last duplicate inside one chunk remains rejected
+struct([
+  ["within", valid(0)],
+  ["within1", valid(1)],
+  ["within2", valid(2)],
+  ["within3", valid(3)],
+  ["within4", valid(4)],
+  ["within5", valid(5)],
+  ["within6", valid(6)],
+  ["within7", valid(7)],
+  ["within8", valid(8)],
+  ["within", valid(9)],
+]);
+
+const crossBoundarySymbol: unique symbol = Symbol("CrossBoundary");
+// @ts-expect-error symbol-key duplicates spanning the chunk boundary remain rejected
+struct([
+  ["cross0", valid(0)],
+  ["cross1", valid(1)],
+  ["cross2", valid(2)],
+  ["cross3", valid(3)],
+  ["cross4", valid(4)],
+  ["cross5", valid(5)],
+  ["cross6", valid(6)],
+  ["cross7", valid(7)],
+  ["cross8", valid(8)],
+  [crossBoundarySymbol, valid(9)],
+  [crossBoundarySymbol, valid(10)],
+]);
+
+const firstTailSymbol: unique symbol = Symbol("FirstTail");
+// @ts-expect-error the final tail compares symbol keys against the first chunk
+struct([
+  [firstTailSymbol, valid(0)],
+  ["tail1", valid(1)],
+  ["tail2", valid(2)],
+  ["tail3", valid(3)],
+  ["tail4", valid(4)],
+  ["tail5", valid(5)],
+  ["tail6", valid(6)],
+  ["tail7", valid(7)],
+  ["tail8", valid(8)],
+  ["tail9", valid(9)],
+  [firstTailSymbol, valid(10)],
+]);
+
+const multiChunkSymbol: unique symbol = Symbol("MultiChunk");
+// @ts-expect-error Seen must survive more than one full recursive chunk
+struct([
+  [multiChunkSymbol, valid(0)],
+  ["multi1", valid(1)],
+  ["multi2", valid(2)],
+  ["multi3", valid(3)],
+  ["multi4", valid(4)],
+  ["multi5", valid(5)],
+  ["multi6", valid(6)],
+  ["multi7", valid(7)],
+  ["multi8", valid(8)],
+  ["multi9", valid(9)],
+  ["multi10", valid(10)],
+  ["multi11", valid(11)],
+  ["multi12", valid(12)],
+  ["multi13", valid(13)],
+  ["multi14", valid(14)],
+  ["multi15", valid(15)],
+  ["multi16", valid(16)],
+  ["multi17", valid(17)],
+  ["multi18", valid(18)],
+  ["multi19", valid(19)],
+  [multiChunkSymbol, valid(20)],
 ]);
 
 declare const unionEntries:

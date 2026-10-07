@@ -75,17 +75,118 @@ type InvalidStructEntry<Entries extends readonly ValidationStructEntry[]> = {
     : Index;
 }[number];
 
-type DuplicateStructKey<
+type DuplicateStructKeyTail<
   Entries extends readonly ValidationStructEntry[],
-  Seen extends ValidationStructKey = never,
+  Seen extends ValidationStructKey,
 > = Entries extends readonly [
   infer Head extends ValidationStructEntry,
   ...infer Tail extends readonly ValidationStructEntry[],
 ]
   ? StructKey<Head> extends Seen
     ? StructKey<Head>
-    : DuplicateStructKey<Tail, Seen | StructKey<Head>>
+    : DuplicateStructKeyTail<Tail, Seen | StructKey<Head>>
   : never;
+
+type DuplicateStructKey<
+  Entries extends readonly ValidationStructEntry[],
+  Seen extends ValidationStructKey = never,
+> = Entries extends readonly [
+  infer Entry0 extends ValidationStructEntry,
+  infer Entry1 extends ValidationStructEntry,
+  infer Entry2 extends ValidationStructEntry,
+  infer Entry3 extends ValidationStructEntry,
+  infer Entry4 extends ValidationStructEntry,
+  infer Entry5 extends ValidationStructEntry,
+  infer Entry6 extends ValidationStructEntry,
+  infer Entry7 extends ValidationStructEntry,
+  infer Entry8 extends ValidationStructEntry,
+  infer Entry9 extends ValidationStructEntry,
+  ...infer Tail extends readonly ValidationStructEntry[],
+]
+  ? StructKey<Entry0> extends Seen
+    ? StructKey<Entry0>
+    : StructKey<Entry1> extends Seen | StructKey<Entry0>
+      ? StructKey<Entry1>
+      : StructKey<Entry2> extends Seen | StructKey<Entry0> | StructKey<Entry1>
+        ? StructKey<Entry2>
+        : StructKey<Entry3> extends
+              | Seen
+              | StructKey<Entry0>
+              | StructKey<Entry1>
+              | StructKey<Entry2>
+          ? StructKey<Entry3>
+          : StructKey<Entry4> extends
+                | Seen
+                | StructKey<Entry0>
+                | StructKey<Entry1>
+                | StructKey<Entry2>
+                | StructKey<Entry3>
+            ? StructKey<Entry4>
+            : StructKey<Entry5> extends
+                  | Seen
+                  | StructKey<Entry0>
+                  | StructKey<Entry1>
+                  | StructKey<Entry2>
+                  | StructKey<Entry3>
+                  | StructKey<Entry4>
+              ? StructKey<Entry5>
+              : StructKey<Entry6> extends
+                    | Seen
+                    | StructKey<Entry0>
+                    | StructKey<Entry1>
+                    | StructKey<Entry2>
+                    | StructKey<Entry3>
+                    | StructKey<Entry4>
+                    | StructKey<Entry5>
+                ? StructKey<Entry6>
+                : StructKey<Entry7> extends
+                      | Seen
+                      | StructKey<Entry0>
+                      | StructKey<Entry1>
+                      | StructKey<Entry2>
+                      | StructKey<Entry3>
+                      | StructKey<Entry4>
+                      | StructKey<Entry5>
+                      | StructKey<Entry6>
+                  ? StructKey<Entry7>
+                  : StructKey<Entry8> extends
+                        | Seen
+                        | StructKey<Entry0>
+                        | StructKey<Entry1>
+                        | StructKey<Entry2>
+                        | StructKey<Entry3>
+                        | StructKey<Entry4>
+                        | StructKey<Entry5>
+                        | StructKey<Entry6>
+                        | StructKey<Entry7>
+                    ? StructKey<Entry8>
+                    : StructKey<Entry9> extends
+                          | Seen
+                          | StructKey<Entry0>
+                          | StructKey<Entry1>
+                          | StructKey<Entry2>
+                          | StructKey<Entry3>
+                          | StructKey<Entry4>
+                          | StructKey<Entry5>
+                          | StructKey<Entry6>
+                          | StructKey<Entry7>
+                          | StructKey<Entry8>
+                      ? StructKey<Entry9>
+                      : DuplicateStructKey<
+                          Tail,
+                          | Seen
+                          | StructKey<Entry0>
+                          | StructKey<Entry1>
+                          | StructKey<Entry2>
+                          | StructKey<Entry3>
+                          | StructKey<Entry4>
+                          | StructKey<Entry5>
+                          | StructKey<Entry6>
+                          | StructKey<Entry7>
+                          | StructKey<Entry8>
+                          | StructKey<Entry9>
+                        >
+  : DuplicateStructKeyTail<Entries, Seen>;
 
 type IsMutableArray<Value> = Value extends unknown[] ? true : false;
 
@@ -104,17 +205,10 @@ type ClosedStructEntries<Entries extends readonly ValidationStructEntry[]> =
               : never
             : never;
 
-type ValidationForKey<
-  Entries extends readonly ValidationStructEntry[],
-  Key extends ValidationStructKey,
-> = StructValidation<
-  Extract<Entries[number], readonly [Key, Validation<unknown, unknown>]>
->;
-
 type ValidationStructValues<Entries extends readonly ValidationStructEntry[]> =
   Readonly<{
-    [Key in StructKey<Entries[number]>]: ValidationValue<
-      ValidationForKey<Entries, Key>
+    [Entry in Entries[number] as StructKey<Entry>]: ValidationValue<
+      StructValidation<Entry>
     >;
   }>;
 
