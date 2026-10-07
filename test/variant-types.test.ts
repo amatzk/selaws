@@ -321,6 +321,115 @@ define(messageKey, [
   ["same", payload<string>()],
 ]);
 
+const UniqueBelowChunk = define(messageKey, [
+  ["below0", unit],
+  ["below1", unit],
+  ["below2", unit],
+  ["below3", unit],
+  ["below4", unit],
+  ["below5", unit],
+  ["below6", unit],
+  ["below7", unit],
+  ["below8", unit],
+]);
+const UniqueAtChunk = define(messageKey, [
+  ["at0", unit],
+  ["at1", unit],
+  ["at2", unit],
+  ["at3", unit],
+  ["at4", unit],
+  ["at5", unit],
+  ["at6", unit],
+  ["at7", unit],
+  ["at8", unit],
+  ["at9", unit],
+]);
+const UniqueAboveChunk = define(messageKey, [
+  ["above0", unit],
+  ["above1", unit],
+  ["above2", unit],
+  ["above3", unit],
+  ["above4", unit],
+  ["above5", unit],
+  ["above6", unit],
+  ["above7", unit],
+  ["above8", unit],
+  ["above9", unit],
+  ["above10", unit],
+]);
+void UniqueBelowChunk;
+void UniqueAtChunk;
+void UniqueAboveChunk;
+
+// @ts-expect-error the first and last names inside one chunk must remain unique
+define(messageKey, [
+  ["within", unit],
+  ["within1", unit],
+  ["within2", unit],
+  ["within3", unit],
+  ["within4", unit],
+  ["within5", unit],
+  ["within6", unit],
+  ["within7", unit],
+  ["within8", unit],
+  ["within", unit],
+]);
+
+// @ts-expect-error a duplicate spanning the chunk boundary must remain rejected
+define(messageKey, [
+  ["cross0", unit],
+  ["cross1", unit],
+  ["cross2", unit],
+  ["cross3", unit],
+  ["cross4", unit],
+  ["cross5", unit],
+  ["cross6", unit],
+  ["cross7", unit],
+  ["cross8", unit],
+  ["crossBoundary", unit],
+  ["crossBoundary", unit],
+]);
+
+// @ts-expect-error the final tail must compare against names from the first chunk
+define(messageKey, [
+  ["firstTail", unit],
+  ["tail1", unit],
+  ["tail2", unit],
+  ["tail3", unit],
+  ["tail4", unit],
+  ["tail5", unit],
+  ["tail6", unit],
+  ["tail7", unit],
+  ["tail8", unit],
+  ["tail9", unit],
+  ["firstTail", unit],
+]);
+
+// @ts-expect-error Seen must survive more than one full recursive chunk
+define(messageKey, [
+  ["multiChunk", unit],
+  ["multi1", unit],
+  ["multi2", unit],
+  ["multi3", unit],
+  ["multi4", unit],
+  ["multi5", unit],
+  ["multi6", unit],
+  ["multi7", unit],
+  ["multi8", unit],
+  ["multi9", unit],
+  ["multi10", unit],
+  ["multi11", unit],
+  ["multi12", unit],
+  ["multi13", unit],
+  ["multi14", unit],
+  ["multi15", unit],
+  ["multi16", unit],
+  ["multi17", unit],
+  ["multi18", unit],
+  ["multi19", unit],
+  ["multiChunk", unit],
+]);
+
 // @ts-expect-error numeric case names are outside the string case grammar
 define(messageKey, [[1, unit]]);
 

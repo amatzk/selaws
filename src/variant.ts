@@ -44,17 +44,118 @@ type InvalidCaseEntry<Entries extends readonly CaseEntry[]> = {
     : Index;
 }[number];
 
-type DuplicateCaseName<
+type DuplicateCaseNameTail<
   Entries extends readonly CaseEntry[],
-  Seen extends string = never,
+  Seen extends string,
 > = Entries extends readonly [
   infer Head extends CaseEntry,
   ...infer Tail extends readonly CaseEntry[],
 ]
   ? EntryName<Head> extends Seen
     ? EntryName<Head>
-    : DuplicateCaseName<Tail, Seen | EntryName<Head>>
+    : DuplicateCaseNameTail<Tail, Seen | EntryName<Head>>
   : never;
+
+type DuplicateCaseName<
+  Entries extends readonly CaseEntry[],
+  Seen extends string = never,
+> = Entries extends readonly [
+  infer Entry0 extends CaseEntry,
+  infer Entry1 extends CaseEntry,
+  infer Entry2 extends CaseEntry,
+  infer Entry3 extends CaseEntry,
+  infer Entry4 extends CaseEntry,
+  infer Entry5 extends CaseEntry,
+  infer Entry6 extends CaseEntry,
+  infer Entry7 extends CaseEntry,
+  infer Entry8 extends CaseEntry,
+  infer Entry9 extends CaseEntry,
+  ...infer Tail extends readonly CaseEntry[],
+]
+  ? EntryName<Entry0> extends Seen
+    ? EntryName<Entry0>
+    : EntryName<Entry1> extends Seen | EntryName<Entry0>
+      ? EntryName<Entry1>
+      : EntryName<Entry2> extends Seen | EntryName<Entry0> | EntryName<Entry1>
+        ? EntryName<Entry2>
+        : EntryName<Entry3> extends
+              | Seen
+              | EntryName<Entry0>
+              | EntryName<Entry1>
+              | EntryName<Entry2>
+          ? EntryName<Entry3>
+          : EntryName<Entry4> extends
+                | Seen
+                | EntryName<Entry0>
+                | EntryName<Entry1>
+                | EntryName<Entry2>
+                | EntryName<Entry3>
+            ? EntryName<Entry4>
+            : EntryName<Entry5> extends
+                  | Seen
+                  | EntryName<Entry0>
+                  | EntryName<Entry1>
+                  | EntryName<Entry2>
+                  | EntryName<Entry3>
+                  | EntryName<Entry4>
+              ? EntryName<Entry5>
+              : EntryName<Entry6> extends
+                    | Seen
+                    | EntryName<Entry0>
+                    | EntryName<Entry1>
+                    | EntryName<Entry2>
+                    | EntryName<Entry3>
+                    | EntryName<Entry4>
+                    | EntryName<Entry5>
+                ? EntryName<Entry6>
+                : EntryName<Entry7> extends
+                      | Seen
+                      | EntryName<Entry0>
+                      | EntryName<Entry1>
+                      | EntryName<Entry2>
+                      | EntryName<Entry3>
+                      | EntryName<Entry4>
+                      | EntryName<Entry5>
+                      | EntryName<Entry6>
+                  ? EntryName<Entry7>
+                  : EntryName<Entry8> extends
+                        | Seen
+                        | EntryName<Entry0>
+                        | EntryName<Entry1>
+                        | EntryName<Entry2>
+                        | EntryName<Entry3>
+                        | EntryName<Entry4>
+                        | EntryName<Entry5>
+                        | EntryName<Entry6>
+                        | EntryName<Entry7>
+                    ? EntryName<Entry8>
+                    : EntryName<Entry9> extends
+                          | Seen
+                          | EntryName<Entry0>
+                          | EntryName<Entry1>
+                          | EntryName<Entry2>
+                          | EntryName<Entry3>
+                          | EntryName<Entry4>
+                          | EntryName<Entry5>
+                          | EntryName<Entry6>
+                          | EntryName<Entry7>
+                          | EntryName<Entry8>
+                      ? EntryName<Entry9>
+                      : DuplicateCaseName<
+                          Tail,
+                          | Seen
+                          | EntryName<Entry0>
+                          | EntryName<Entry1>
+                          | EntryName<Entry2>
+                          | EntryName<Entry3>
+                          | EntryName<Entry4>
+                          | EntryName<Entry5>
+                          | EntryName<Entry6>
+                          | EntryName<Entry7>
+                          | EntryName<Entry8>
+                          | EntryName<Entry9>
+                        >
+  : DuplicateCaseNameTail<Entries, Seen>;
 
 type IsMutableArray<Value> = Value extends unknown[] ? true : false;
 
@@ -73,13 +174,8 @@ type ClosedCaseEntries<Entries extends readonly CaseEntry[]> =
               : never
             : never;
 
-type EntrySpecForName<
-  Entries extends readonly CaseEntry[],
-  Name extends string,
-> = EntrySpec<Extract<Entries[number], readonly [Name, CaseSpec]>>;
-
 type CaseSpecsFromEntries<Entries extends readonly CaseEntry[]> = Readonly<{
-  [Name in EntryName<Entries[number]>]: EntrySpecForName<Entries, Name>;
+  [Entry in Entries[number] as EntryName<Entry>]: EntrySpec<Entry>;
 }>;
 
 type CaseName<Specs extends CaseSpecs> = Extract<keyof Specs, string>;
@@ -136,16 +232,24 @@ type PayloadCase<
 }> &
   FamilyBrand<TokenValue, Specs>;
 
-type VariantValue<
-  TokenValue extends Token,
+type RawVariantValue<
   Specs extends CaseSpecs,
   Name extends CaseName<Specs> = CaseName<Specs>,
 > =
   Name extends CaseName<Specs>
     ? Specs[Name] extends UnitSpec
-      ? UnitCase<TokenValue, Specs, Name>
-      : PayloadCase<TokenValue, Specs, Name, PayloadOf<Specs[Name]>>
+      ? Readonly<{ tag: Name }>
+      : Readonly<{
+          tag: Name;
+          value: PayloadOf<Specs[Name]>;
+        }>
     : never;
+
+type VariantValue<
+  TokenValue extends Token,
+  Specs extends CaseSpecs,
+  Name extends CaseName<Specs> = CaseName<Specs>,
+> = RawVariantValue<Specs, Name> & FamilyBrand<TokenValue, Specs>;
 
 type Constructors<TokenValue extends Token, Specs extends CaseSpecs> = Readonly<{
   [Name in CaseName<Specs>]: Specs[Name] extends UnitSpec
