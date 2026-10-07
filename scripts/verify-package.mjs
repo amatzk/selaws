@@ -27,7 +27,7 @@ assert.equal(
   "package verification requires the pinned TypeScript 7 development compiler",
 );
 
-const run = (command, args) => {
+const run = (command, args, failureLabel = `${command} ${args.join(" ")}`) => {
   const result = spawnSync(command, args, {
     cwd: consumer,
     encoding: "utf8",
@@ -36,7 +36,7 @@ const run = (command, args) => {
 
   if (result.status !== 0) {
     throw new Error(
-      [`${command} ${args.join(" ")} failed`, result.stdout, result.stderr]
+      [`${failureLabel} failed`, result.stdout, result.stderr]
         .filter(Boolean)
         .join("\n"),
     );
@@ -105,6 +105,149 @@ try {
       null,
       2,
     ),
+  );
+
+  // These are compiler-regression floors, not public declaration-size limits.
+  const scaleEntryCount = 2000;
+  const protocolNextProbeCount = 64;
+  const scaleOwners = ["variant", "validation", "protocol"];
+
+  for (const owner of scaleOwners) {
+    writeFileSync(
+      join(consumer, `tsconfig.scale-${owner}.json`),
+      JSON.stringify(
+        {
+          extends: "./tsconfig.json",
+          include: [`scale-${owner}.ts`],
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
+  const variantScaleEntries = Array.from({ length: scaleEntryCount }, (_, index) =>
+    index % 2 === 0
+      ? `  ["case${index}", Variant.unit],`
+      : `  ["case${index}", Variant.payload<number>()],`,
+  ).join("\n");
+
+  writeFileSync(
+    join(consumer, "scale-variant.ts"),
+    `import { Variant, type Variant as VariantValue } from "selaws/variant";
+
+const scaleVariantKey: unique symbol = Symbol("ScaleVariant");
+const ScaleVariant = Variant.define(scaleVariantKey, [
+${variantScaleEntries}
+]);
+
+type ScaleVariantValue = VariantValue<typeof ScaleVariant>;
+type ScaleVariantLast = Variant.Case<ScaleVariantValue, "case1999">;
+
+const scaleVariantFirst: ScaleVariantValue = ScaleVariant.make.case0();
+const scaleVariantLast: ScaleVariantLast = ScaleVariant.make.case1999(1999);
+const scaleVariantValue: ScaleVariantValue = scaleVariantLast;
+
+if (scaleVariantValue.tag === "case1999") {
+  const payload: number = scaleVariantValue.value;
+  void payload;
+}
+
+void scaleVariantFirst;
+`,
+  );
+
+  const validationScaleEntries = Array.from({ length: scaleEntryCount }, (_, index) =>
+    index === scaleEntryCount - 1
+      ? `  ["field${index}", Validation.invalid("scale-issue" as const)],`
+      : `  ["field${index}", Validation.valid(${index} as const)],`,
+  ).join("\n");
+  const validationExpectedFields = Array.from(
+    { length: scaleEntryCount },
+    (_, index) =>
+      index === scaleEntryCount - 1
+        ? `  field${index}: never;`
+        : `  field${index}: ${index};`,
+  ).join("\n");
+
+  writeFileSync(
+    join(consumer, "scale-validation.ts"),
+    `import {
+  Validation,
+  type ValidationIssue,
+  type ValidationValue,
+} from "selaws/validation";
+
+const ScaleValidation = Validation.struct([
+${validationScaleEntries}
+]);
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2
+      ? true
+      : false
+    : false;
+type Expect<T extends true> = T;
+type ScaleValidationSuccess = ValidationValue<typeof ScaleValidation>;
+type ScaleValidationIssue = ValidationIssue<typeof ScaleValidation>;
+type ScaleValidationExpected = Readonly<{
+${validationExpectedFields}
+}>;
+type _ScaleValidationSuccess = Expect<
+  Equal<ScaleValidationSuccess, ScaleValidationExpected>
+>;
+type _ScaleValidationIssue = Expect<Equal<ScaleValidationIssue, "scale-issue">>;
+
+declare const scaleValidationSuccess: ScaleValidationSuccess;
+const scaleField0: 0 = scaleValidationSuccess.field0;
+const scaleField1998: 1998 = scaleValidationSuccess.field1998;
+const scaleField1999: never = scaleValidationSuccess.field1999;
+
+void scaleField0;
+void scaleField1998;
+void scaleField1999;
+`,
+  );
+
+  const protocolScaleTransitions = Array.from(
+    { length: scaleEntryCount },
+    (_, index) => `  ["state${index}", "label${index}", "state${index + 1}"],`,
+  ).join("\n");
+  const protocolNextProbes = Array.from(
+    { length: protocolNextProbeCount },
+    (_, probeIndex) => {
+      const transitionIndex = probeIndex;
+      return [
+        `type ScaleNext${probeIndex} = ProtocolNext<`,
+        "  typeof scaleTransitions,",
+        `  "state${transitionIndex}",`,
+        `  "label${transitionIndex}"`,
+        ">;",
+        `const scaleNext${probeIndex}: ScaleNext${probeIndex} = "state${transitionIndex + 1}";`,
+        `void scaleNext${probeIndex};`,
+      ].join("\n");
+    },
+  ).join("\n");
+
+  writeFileSync(
+    join(consumer, "scale-protocol.ts"),
+    `import { Protocol, type Next as ProtocolNext } from "selaws/protocol";
+
+const scaleTransitions = [
+${protocolScaleTransitions}
+] as const;
+const ScaleProtocol = Protocol.define(scaleTransitions);
+
+${protocolNextProbes}
+
+const scaleProtocolAllowed: boolean = ScaleProtocol.allows(
+  "state0",
+  "label0",
+  "state1",
+);
+void scaleProtocolAllowed;
+`,
   );
 
   writeFileSync(
@@ -1384,6 +1527,20 @@ for (const internalSpecifier of [
 
     for (const config of ["tsconfig.json", "tsconfig.exact.json"]) {
       run("pnpm", [`--package=typescript@${version}`, "dlx", "tsc", "-p", config]);
+    }
+
+    for (const owner of scaleOwners) {
+      run(
+        "pnpm",
+        [
+          `--package=typescript@${version}`,
+          "dlx",
+          "tsc",
+          "-p",
+          `tsconfig.scale-${owner}.json`,
+        ],
+        `TypeScript ${version} ${owner} scale fixture`,
+      );
     }
   }
 
