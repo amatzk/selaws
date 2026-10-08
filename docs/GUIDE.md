@@ -116,8 +116,10 @@ Use an Identity predicate when the same owner can decide whether an incoming
 scalar is admissible.
 
 ```ts
+const portKey: unique symbol = Symbol("Port");
+
 const Port = identity.number(
-  "Port",
+  portKey,
   (value) =>
     Number.isInteger(value) &&
     value >= 0 &&
@@ -144,8 +146,10 @@ fact must be established independently.
 ```ts
 import { evidence } from "selaws/evidence";
 
+const nonEmptyKey: unique symbol = Symbol("NonEmpty");
+
 const NonEmpty = evidence.string(
-  "NonEmpty",
+  nonEmptyKey,
   (value) => value.length > 0,
 );
 
