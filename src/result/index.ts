@@ -19,7 +19,6 @@ import {
 import { orThrow } from "./throw.js";
 
 export { attempt, attemptAsync } from "./capture.js";
-export type { Err, Ok, ResultError, ResultValue } from "./core.js";
 export {
   all,
   andThen,
@@ -39,8 +38,26 @@ export {
 } from "./core.js";
 export { orThrow } from "./throw.js";
 
+/** A successful Result value. */
+export type Ok<T> = Readonly<{
+  ok: true;
+  value: T;
+}>;
+
+/** A recoverable Result error value. */
+export type Err<E> = Readonly<{
+  ok: false;
+  error: E;
+}>;
+
 /** Recoverable success or error with fail-fast composition. */
-export type Result<T, E> = import("./core.js").Result<T, E>;
+export type Result<T, E> = Ok<T> | Err<E>;
+
+/** Extracts the success value type from a Result union. */
+export type ResultValue<R> = R extends Ok<infer T> ? T : never;
+
+/** Extracts the error value type from a Result union. */
+export type ResultError<R> = R extends Err<infer E> ? E : never;
 
 type ResultFacade = Readonly<{
   all: typeof all;

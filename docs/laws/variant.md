@@ -35,10 +35,11 @@ the family.
 
 The outer tuple and every case-entry pair must be readonly, its length must be
 statically concrete, and every case name must be one concrete string literal.
-Mutable tuples, broad arrays, optional/union entry sets, duplicate names, and
+Mutable tuples, broad arrays, optional/union entry sets, union-valued case names, duplicate names, and
 patterned/broad string names do not define one exact closed family. A phantom
 brand on a string also does not create another runtime case-name key, so
-phantom-branded string intersections are outside this declaration grammar.
+phantom-branded string intersections and nominal enum names are outside this
+declaration grammar.
 Empty declarations are valid and produce an uninhabited Variant value type.
 
 Declaration order carries no meaning.
@@ -56,7 +57,7 @@ family-level exhaustive handling obligation.
 
 ## 2. Family identity
 
-Declaration-owned family identity is the default.
+Declaration-owned family identity is the default for nominal Variant.
 
 `Variant.define(token, entries)` requires one caller-owned narrow symbol. The
 symbol is the phantom property key. Separate symbols remain separate families
@@ -90,11 +91,25 @@ Choosing the same shared contract is an interoperability assertion, not a
 display-name coincidence. See
 [Declaration compatibility](./declaration-compatibility.md).
 
+When a domain intentionally has only a structural tagged value contract,
+`Variant.structural(entries)` declares the same finite case vocabulary
+without a nominal family marker. Its value type is the structural tagged
+union, and typed literals with that shape may be passed to Match. Ordinary
+TypeScript structural assignability applies, not exact nominal family
+identity; this mode does not imply a named shared contract. The declaration
+still owns constructors, tags, correlation and whole-family Match.
+
 `Variant.Value<Family>` and the equivalent top-level `Variant<Family>`
 project only from Selaws Variant family declaration types. A lookalike object
 that merely exposes a `make` property does not acquire Variant family
 authority. The declaration witness used for that projection is type-only and
 does not add a runtime property to the family object.
+
+The frozen `family.tags` array projects the complete case-name universe
+from the same snapshot as constructors and Match. It is empty for an empty
+family, otherwise typed as a non-empty readonly array of the case-name union.
+It enumerates declaration order for presentation only; order carries no
+alternative meaning.
 
 ## 3. Case formation
 
@@ -105,7 +120,10 @@ does not add a runtime property to the family object.
 These declaration markers are opaque, package-copy-stable sentinels; their
 runtime representation carries no domain payload.
 
-`Variant.define` produces one `make` constructor for every declared case.
+Each declaration produces one own data-function property on `make` per declared
+case. `make` is a frozen ordinary JavaScript object; inherited Object methods
+are not case constructors. A declared case can shadow an inherited name.
+Use `tags` or own-property membership to enumerate cases.
 Formation preserves the selected case name and payload:
 
 ```ts
@@ -135,7 +153,7 @@ A payload case has the representation:
 { tag: caseName, value: payload }
 ```
 
-The family phantom identity is static TypeScript information. Formation adds no
+When present, the family phantom identity is static TypeScript information. Formation adds no
 runtime brand to the value.
 
 Constructed values are ordinary structural data. The family declaration and
@@ -198,7 +216,7 @@ type Write =
   Variant.Case<Message, "write">;
 ```
 
-The selected case retains its payload correlation and family phantom identity.
+The selected case retains its payload correlation and any family phantom identity.
 No runtime `Case` value or `Variant.is` predicate is introduced.
 
 ## 6. Generic and recursive families
@@ -263,8 +281,8 @@ version negotiation belong to application owners that can establish those
 facts.
 
 The runtime declaration boundary recognizes its own grammar. `Variant.define`
-requires a symbol token; `Variant.shared` requires a string contract. Both
-forms validate finite case declarations. `match` checks selected case
+requires a symbol token; `Variant.shared` requires a string contract;
+`Variant.structural` takes no identity token. All three validate finite case declarations. `match` checks selected case
 membership and selected handler availability. Payload type
 validity remains a TypeScript guarantee inside the ordinary Selaws trust model.
 

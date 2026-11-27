@@ -4,7 +4,7 @@ Independent semantic primitives for TypeScript with explicit laws.
 
 Selaws gives common domain meanings small, separate owners instead of placing
 them behind one framework abstraction. You can introduce nominal scalar
-identity, establish stable facts, declare admissible transitions, define closed
+identity, establish stable facts, recognize finite scalar vocabularies, declare admissible transitions, define closed
 variants, model optional values, accumulate independent validation issues, and
 carry recoverable failures without changing ordinary JavaScript control flow.
 
@@ -12,6 +12,7 @@ carry recoverable failures without changing ordinary JavaScript control flow.
 | --- | --- | --- |
 | Identity | What scalar value is this? | `UserId("user_1")` |
 | Evidence | What stable fact is established about this scalar? | `NonEmpty(userId)` |
+| Vocabulary | Which scalar belongs to this finite universe? | `Status.has(input)` |
 | Protocol | Which labeled transition is admissible? | `OrderProtocol.allows("pending", "pay", "paid")` |
 | Variant | Which closed labeled alternative is this? | `Message.make.write("hello")` |
 | Option | Is a value present? | `Option.fromUndefined(value)` |
@@ -27,6 +28,7 @@ A useful reading classification is:
 Value / relation laws
   Identity
   Evidence
+  Vocabulary
   Protocol
   Variant
 
@@ -124,8 +126,10 @@ to Evidence and Variant family identity.
 import { evidence } from "selaws/evidence";
 import type { UserId } from "./user-id.js";
 
+const nonEmptyKey: unique symbol = Symbol("NonEmpty");
+
 const NonEmpty = evidence.string(
-  "NonEmpty",
+  nonEmptyKey,
   (value) => value.length > 0,
 );
 
@@ -143,6 +147,21 @@ if (checked !== undefined) {
 
 Evidence describes a stable fact about the same immutable scalar. Independent
 facts can accumulate while existing identity remains present.
+
+## Vocabulary
+
+```ts
+import { Vocabulary } from "selaws/vocabulary";
+
+const Status = Vocabulary.define(["open", "closed"]);
+type Status = (typeof Status.values)[number];
+
+Status.has("open"); // true
+Status.values; // frozen readonly ["open", "closed"]
+```
+
+Use a vocabulary when runtime membership and enumeration must agree with one
+closed scalar declaration. It adds no nominal brand, payload, or transition.
 
 ## Declare transition admissibility
 
@@ -171,10 +190,12 @@ persist state, or provide concurrency control.
 
 Typed Protocol declarations are exact finite relations: the outer relation is
 one finite readonly tuple and every `from`, `label`, and `to` member is one
-concrete runtime scalar identity rather than a broad scalar type. Phantom
-brands on the same primitive are not additional Protocol identities. This keeps
+raw literal string, number, bigint or boolean, not a broad scalar type,
+phantom-branded value, enum member or symbol type. This keeps
 `Next` and runtime `allows` tied to the same relation snapshot.
 
+The frozen `OrderProtocol.states`, `OrderProtocol.labels`, and
+`OrderProtocol.targets(from, label)` expose projections of the same relation.
 The relation may be nondeterministic: one `(from, label)` pair may admit more
 than one target.
 
@@ -203,7 +224,11 @@ const size = Message.match(message, {
 });
 ```
 
-The finite case-entry tuple is the complete Variant family. `make.<case>`
+The finite case-entry tuple is the complete Variant family.
+`Message.tags` exposes its frozen case-name projection. Use
+`Variant.structural(entries)` instead of a token-owned family when the
+domain intentionally accepts ordinary tagged structural values; it preserves
+case correlation and total Match without asserting nominal family identity. `make.<case>`
 preserves the correlation between a tag and its payload. `Variant.Case<Value,
 Name>` extracts one reusable named member from the exported value union.
 `match` is exhaustive and rejects undeclared handler keys in typed TypeScript,
@@ -371,6 +396,7 @@ Use focused entry points when one owner dominates a module:
 ```text
 selaws/identity
 selaws/evidence
+selaws/vocabulary
 selaws/protocol
 selaws/variant
 selaws/option
@@ -388,6 +414,7 @@ import {
   Result,
   Validation,
   Variant,
+  Vocabulary,
 } from "selaws";
 ```
 

@@ -222,3 +222,14 @@ type _RootFacadeCapturedAsync = Assert<
 
 const rootFacadeThrown = RootResult.orThrow(Result.ok(1), () => new Error("unused"));
 type _RootFacadeThrown = Assert<Equal<typeof rootFacadeThrown, number>>;
+
+const decoratedCollectorInput = Object.assign([ok(1)] as const, {
+  meta: ok("not a position"),
+});
+// @ts-expect-error collectors do not project arbitrary array properties
+all(decoratedCollectorInput);
+declare const extraArrayProperty: readonly ReturnType<typeof ok<number>>[] & {
+  readonly metadata?: string;
+};
+// @ts-expect-error optional metadata is not a positional output
+all(extraArrayProperty);

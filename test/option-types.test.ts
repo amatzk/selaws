@@ -103,3 +103,14 @@ type _RootFacade = Assert<Equal<typeof rootSome, RootOptionType<number>>>;
 
 void literalSome;
 void literalNone;
+
+const decoratedCollectorInput = Object.assign([some(1)] as const, {
+  meta: some("not a position"),
+});
+// @ts-expect-error collectors do not project arbitrary array properties
+all(decoratedCollectorInput);
+declare const extraArrayProperty: readonly ReturnType<typeof some<number>>[] & {
+  readonly metadata?: string;
+};
+// @ts-expect-error optional metadata is not a positional output
+all(extraArrayProperty);

@@ -1,39 +1,16 @@
 import type { CallbackResult } from "../internal/callback.js";
 import { ownMatchHandler } from "../internal/match.js";
+import type { PositionArrayInput } from "../internal/position-array.js";
 import type { Option } from "../option.js";
 import type { Validation, ValidationIssues } from "../validation.js";
 
-/** A successful Result value. */
-export type Ok<T> = Readonly<{
-  ok: true;
-  value: T;
-}>;
-
-/** A recoverable Result error value. */
-export type Err<E> = Readonly<{
-  ok: false;
-  error: E;
-}>;
-
-/** Recoverable success or error with fail-fast composition. */
-export type Result<T, E> = Ok<T> | Err<E>;
-
-/** Extracts the success value type from a Result union. */
-export type ResultValue<R> = R extends Ok<infer T> ? T : never;
-
-/** Extracts the error value type from a Result union. */
-export type ResultError<R> = R extends Err<infer E> ? E : never;
+import type { Err, Ok, Result, ResultError, ResultValue } from "./index.js";
 
 type ResultValues<R extends readonly Result<unknown, unknown>[]> = {
   [K in keyof R]: ResultValue<R[K]>;
 };
 
 type ValidationResultError<E> = [E] extends [never] ? never : ValidationIssues<E>;
-
-type IsMutableArray<Value> = Value extends unknown[] ? true : false;
-
-type StableArrayInput<Value extends readonly unknown[]> =
-  true extends IsMutableArray<Value> ? never : unknown;
 
 /** Constructs a successful Result and preserves the error axis as never. */
 export const ok = <T>(value: T): Result<T, never> => ({
@@ -119,7 +96,7 @@ export const unwrapOrElse = <T, E, U>(
  * The first Err is returned; complete success preserves tuple positions.
  */
 export const all = <const R extends readonly Result<unknown, unknown>[]>(
-  results: R & StableArrayInput<R>,
+  results: R & PositionArrayInput<R>,
 ): Result<ResultValues<R>, ResultError<R[number]>> => {
   const values: unknown[] = [];
   const length = results.length;

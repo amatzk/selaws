@@ -23,7 +23,11 @@ const checked = NonEmpty(userId);
 ```
 
 Evidence applies to immutable scalar carriers, so aliasing cannot mutate the
-underlying value after the fact is established.
+underlying value after the fact is established. This does not imply that a
+value produced by a representation-changing operation carries the same fact.
+For example, JavaScript Set elements and Map keys canonicalize `-0` to `+0`
+even when a generic TypeScript type retains a phantom fact about signed zero.
+Re-establish any affected fact at such a boundary.
 
 ## Declaration-owned evidence
 
@@ -39,11 +43,11 @@ const NonEmpty = evidence.string(
 );
 ```
 
-The fact token is the phantom property key.
+The fact token type is the phantom property key; runtime symbol equality is not the law.
 
 ```text
-same symbol token       => same local fact identity
-different symbol tokens => different local fact identities
+same static symbol token type       => same local fact identity
+different static symbol token types => different local fact identities
 same Symbol description => no compatibility by itself
 ```
 

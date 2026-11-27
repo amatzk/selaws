@@ -23,12 +23,12 @@ type EvidenceMarker = {
  * Independent fact tokens occupy independent phantom properties, so evidence
  * composes while preserving existing identity and evidence on the same scalar.
  */
-export type Evidence<T extends Scalar, Fact extends symbol> = [Fact] extends [never]
+export type Evidence<T extends Scalar, Fact extends symbol> = T & EvidenceKey<Fact>;
+
+type EvidenceKey<Fact extends symbol> = [Fact] extends [never]
   ? never
   : [Fact] extends [NarrowSymbolSet<Fact>]
-    ? T & {
-        readonly [Key in Fact]: EvidenceMarker;
-      }
+    ? { readonly [Key in Fact]: EvidenceMarker }
     : never;
 
 type Establish<T extends Scalar, Fact extends symbol> = <Value extends T>(
@@ -89,13 +89,13 @@ type EvidenceDeclarationOf<Fact> = EvidenceDeclarationProperty extends keyof Fac
     : never
   : never;
 
-interface LocalFact<T extends Scalar, Key extends symbol> {
+export interface LocalFact<T extends Scalar, Key extends symbol> {
   readonly "~selaws.evidence.declaration"?: LocalEvidenceDeclaration<T, Key>;
   <Value extends T>(value: Value): Evidence<Value, Key> | undefined;
   (value: unknown): Evidence<T, Key> | undefined;
 }
 
-interface SharedFact<T extends Scalar, Name extends string> {
+export interface SharedFact<T extends Scalar, Name extends string> {
   readonly "~selaws.evidence.declaration"?: SharedEvidenceDeclaration<T, Name>;
   <Value extends T>(value: Value): SharedEvidence<Value, Name> | undefined;
   (value: unknown): SharedEvidence<T, Name> | undefined;

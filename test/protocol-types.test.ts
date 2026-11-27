@@ -180,13 +180,15 @@ const booleanMembership: boolean = BooleanProtocol.allows(false, true, false);
 const sourceSymbol: unique symbol = Symbol("source");
 const labelSymbol: unique symbol = Symbol("label");
 const targetSymbol: unique symbol = Symbol("target");
-const symbolTransitions = [[sourceSymbol, labelSymbol, targetSymbol]] as const;
-const SymbolProtocol = define(symbolTransitions);
-const symbolMembership: boolean = SymbolProtocol.allows(
-  sourceSymbol,
-  labelSymbol,
-  targetSymbol,
-);
+// @ts-expect-error unique symbol types do not guarantee runtime singleton identities
+define([[sourceSymbol, labelSymbol, targetSymbol]]);
+const registeredA: unique symbol = Symbol.for("same");
+const registeredB: unique symbol = Symbol.for("same");
+// @ts-expect-error distinct symbol types can denote the same runtime identifier
+define([
+  [registeredA, "go", "a"],
+  [registeredB, "go", "b"],
+]);
 
 declare let cyclicSource: "a" | "b";
 declare let cyclicTarget: "a" | "b";
@@ -255,5 +257,63 @@ void dynamicMembership;
 void numericMembership;
 void bigintMembership;
 void booleanMembership;
-void symbolMembership;
 void impossiblePendingPayTarget;
+
+type _projectedStates = Expect<
+  Equal<(typeof OrderProtocol.states)[number], OrderState>
+>;
+type _projectedLabels = Expect<
+  Equal<(typeof OrderProtocol.labels)[number], OrderLabel>
+>;
+const targets = OrderProtocol.targets("pending", "pay");
+type _targets = Expect<Equal<typeof targets, readonly "paid"[]>>;
+const dynamicTargets = OrderProtocol.targets("pending", dynamicLabel);
+type _dynamicTargets = Expect<
+  Equal<typeof dynamicTargets, readonly ("paid" | "cancelled")[]>
+>;
+const noTargets = OrderProtocol.targets("shipped", "pay");
+type _noTargets = Expect<Equal<typeof noTargets, readonly never[]>>;
+const emptyProtocol = define([]);
+type _emptyStates = Expect<Equal<typeof emptyProtocol.states, readonly []>>;
+// @ts-expect-error unknown source
+OrderProtocol.targets("missing", "pay");
+// @ts-expect-error projections cannot be mutated
+OrderProtocol.states.push("pending");
+
+declare const booleanBrand: unique symbol;
+declare const brandedTrue: true & { readonly [booleanBrand]: true };
+declare const brandedFalse: false & { readonly [booleanBrand]: true };
+// @ts-expect-error a phantom boolean key is not a runtime-distinct state
+define([[brandedTrue, "go", false]]);
+// @ts-expect-error a phantom boolean target cannot establish evidence
+define([[true, "go", brandedFalse]]);
+// @ts-expect-error a phantom boolean label is not a distinct runtime label
+define([["a", brandedTrue, "b"]]);
+
+declare enum FirstStringEnum {
+  A = "a",
+}
+declare enum SecondStringEnum {
+  A = "a",
+}
+declare enum FirstNumberEnum {
+  A = 1,
+}
+declare enum SecondNumberEnum {
+  A = 1,
+}
+// @ts-expect-error distinct enum types can denote the same runtime state
+define([
+  [FirstStringEnum.A, "go", "x"],
+  [SecondStringEnum.A, "go", "y"],
+]);
+// @ts-expect-error numeric enum members also have nominal TypeScript identity
+define([
+  [FirstNumberEnum.A, "go", "x"],
+  [SecondNumberEnum.A, "go", "y"],
+]);
+// Raw numerical literal identities remain available, including scientific notation.
+define([
+  [1e-7, "go", 1e21],
+  [-3.14, "go", 0],
+]);

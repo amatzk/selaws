@@ -55,12 +55,12 @@ type UserId =
   identity.Value<typeof UserId>;
 ```
 
-The symbol token is the phantom property key. One identity requires one narrow
-symbol token.
+The symbol token type is the phantom property key. One identity requires one
+narrow static declaration token; runtime symbol equality is not the law.
 
 ```text
-same symbol token       => same local identity
-different symbol tokens => different local identities
+same static symbol token type       => same local identity
+different static symbol token types => different local identities
 same Symbol description => no compatibility by itself
 ```
 

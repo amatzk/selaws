@@ -48,18 +48,21 @@ const form = Validation.struct([
 preserves the tuple shape. Failure concatenates every issue collection in input
 order while retaining each collection's internal order and duplicates. Typed
 input arrays must be readonly so array covariance cannot replace a Validation
-with one carrying a different value or issue type before the call.
+with one carrying a different value or issue type before the call. The output
+contains only positional values. Typed inputs with additional array properties
+are rejected; those properties are not collected.
 
 `Validation.struct` performs the analogous product for one finite readonly tuple
-of readonly `[key, Validation]` entries. Keys are concrete string or symbol
-identities. Complete success produces one ordinary data property per declared
+of readonly `[key, Validation]` entries. Typed keys are concrete raw string
+literal identities. Complete success produces one ordinary data property per declared
 key. Failure concatenates every issue collection in entry order while retaining
 internal order and duplicates.
 
 The typed grammar rejects directly mutable outer or inner tuples, duplicate
-keys, broad string/symbol key spaces, phantom-branded property-key distinctions,
+keys, broad string key spaces, symbol types, phantom-branded or nominal enum key distinctions,
 and broad-length or union declarations because those do not identify one exact
-stable keyed product. A readonly view
+stable keyed product. A union-valued key or alternative key at one tuple position
+is rejected; the validation result or its data may still be a union. A readonly view
 over separately mutable backing data remains subject to the TypeScript trust
 model in [SEMANTICS.md](../SEMANTICS.md). Runtime JavaScript callers must supply one array of exact
 pairs, unique string/symbol keys, and structural Validation values with own

@@ -1,5 +1,6 @@
 import type { CallbackResult } from "./internal/callback.js";
 import { ownMatchHandler } from "./internal/match.js";
+import type { PositionArrayInput } from "./internal/position-array.js";
 
 /** A present Option value. */
 export type Some<T> = Readonly<{
@@ -21,11 +22,6 @@ export type OptionValue<O> = O extends Some<infer T> ? T : never;
 type OptionValues<O extends readonly Option<unknown>[]> = {
   [K in keyof O]: OptionValue<O[K]>;
 };
-
-type IsMutableArray<Value> = Value extends unknown[] ? true : false;
-
-type StableArrayInput<Value extends readonly unknown[]> =
-  true extends IsMutableArray<Value> ? never : unknown;
 
 /** Constructs a present Option value. */
 export const some = <T>(value: T): Option<T> => ({
@@ -121,7 +117,7 @@ export const unwrapOrElse = <T, U>(option: Option<T>, fallback: () => U): T | U 
  * All Some values produce a position-preserving tuple; any None produces None.
  */
 export const all = <const O extends readonly Option<unknown>[]>(
-  options: O & StableArrayInput<O>,
+  options: O & PositionArrayInput<O>,
 ): Option<OptionValues<O>> => {
   const values: unknown[] = [];
   const length = options.length;

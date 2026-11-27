@@ -7,6 +7,7 @@ Package co-location does not merge their laws.
 | --- | --- |
 | Identity | What scalar value is this? |
 | Evidence | What stable fact is established about this scalar? |
+| Vocabulary | Which scalar belongs to this finite universe? |
 | Protocol | Which labeled state transitions are admissible? |
 | Variant | Which closed labeled alternative is this, and what payload does it carry? |
 | Option | Is a value present? |
@@ -19,6 +20,7 @@ A useful reading classification is:
 Value / relation laws
   Identity
   Evidence
+  Vocabulary
   Protocol
   Variant
 
@@ -40,6 +42,7 @@ The detailed owner contracts are:
 
 - [Identity](./laws/identity.md)
 - [Evidence](./laws/evidence.md)
+- [Vocabulary](./laws/vocabulary.md)
 - [Protocol](./laws/protocol.md)
 - [Variant](./laws/variant.md)
 - [Option](./laws/option.md)
@@ -71,7 +74,9 @@ Result     recoverable success / fail-fast error
 
 Likewise, a list of state-like strings does not automatically imply Protocol.
 Protocol begins only when the application needs an admissible labeled relation
-between scalar identifiers.
+between scalar identifiers. Vocabulary owns exact finite scalar membership and
+immutable enumeration when those must agree; it requires neither a transition
+nor a correlated payload.
 
 Using one owner as a carrier for another owner's meaning does not transfer the
 second owner's laws automatically.
@@ -94,6 +99,8 @@ Validation.fromResult
 
 The source information preserved by each boundary is part of the target
 owner's law.
+
+Vocabulary is independent of the other owners and introduces no nominal identity.
 
 Protocol is independent of every other semantic owner. It consumes
 application-owned scalar identifiers without importing Identity, Evidence, or
@@ -197,9 +204,8 @@ string | number | bigint | boolean | symbol
 
 Successful formation returns that same primitive representation.
 
-Protocol uses those JavaScript scalar kinds as application-owned state and
-label identifiers. A typed Protocol declaration is one exact finite readonly
-relation whose transition members are concrete scalar identities.
+Protocol uses those JavaScript scalar kinds as runtime state and label identifiers.
+Typed Protocol declarations require raw literal strings, numbers, bigints or booleans.
 `Protocol.define` snapshots that relation into private runtime membership.
 The runtime relation is not application state.
 
@@ -223,13 +229,13 @@ and boundary laws in typed application code.
 
 ## 6. Declaration compatibility law
 
-Declaration-owned identity is the default for Identity, Evidence, and Variant.
+Declaration-owned identity is the default for Identity, Evidence, and nominal Variant.
 A caller-owned narrow symbol determines local declaration identity.
 
 ```text
-same symbol token       => compatible local declaration identity
-different symbol tokens => distinct local declaration identity
-symbol description text => non-semantic
+same static symbol token type       => compatible local declaration identity
+different static symbol token types => distinct local declaration identities
+symbol description text             => non-semantic
 ```
 
 Intentional structural interoperability is explicit:
@@ -260,6 +266,12 @@ Variant family markers additionally retain the exact closed case-name universe
 and case signatures needed for typed compatibility. Two shared Variant
 declarations with the same contract but different family signatures therefore
 remain incompatible.
+
+`Variant.structural` explicitly omits a family identity marker. Its value
+compatibility follows ordinary TypeScript structural assignability. The
+closed case declaration still owns formation, case-name projection and total
+Match; structural compatibility is neither nominal family equivalence nor a
+named shared contract.
 
 Local factories require symbol tokens at runtime. Shared factories require
 string contracts. TypeScript additionally requires narrow symbols and concrete
@@ -318,18 +330,23 @@ Owner boundaries preserve information according to the target contract.
   states are otherwise equal.
 
 Applications can state a different projection explicitly before or after an
-owner boundary.
+owner boundary. These conversions are not generally inverses: converting an
+Invalid to Result and back retains its issue list as one nested issue, rather
+than implicitly flattening it. Nullable projections likewise may identify
+Some(undefined) with None.
 
 ## 10. Snapshot law
 
-Protocol and Variant both define immutable runtime declarations from
+Vocabulary, Protocol and Variant define immutable runtime declarations from
 caller-provided declaration data.
+
+`Vocabulary.define` snapshots finite scalar positions.
 
 `Protocol.define` snapshots transition triples.
 
 `Variant.define` snapshots case names and case kinds.
 
-Protocol and Variant typed declarations require readonly finite tuples and
+Vocabulary, Protocol and Variant typed declarations require readonly finite tuples and
 reject directly mutable declaration arrays. Protocol additionally requires one
 concrete scalar identity in every transition position; broad scalar spaces and
 unions do not denote one exact typed relation. This prevents static Protocol
@@ -338,9 +355,9 @@ runtime snapshot. TypeScript can still create a readonly view over a separately
 mutable alias and mutate the same backing array before definition; that
 language-level unsound aliasing is governed by the trust model below.
 
-At runtime, both owners snapshot caller-provided declaration data. Later
+At runtime, these owners snapshot caller-provided declaration data. Later
 mutation of caller-owned JavaScript arrays does not change the already-defined
-Protocol or Variant family.
+Vocabulary, Protocol or Variant family.
 
 Snapshotting the declaration does not freeze application payloads, application
 state, or external storage.
@@ -348,7 +365,7 @@ state, or external storage.
 ## 11. TypeScript trust model
 
 Selaws validates runtime-observable declaration grammar that belongs to Selaws.
-That includes local/shared declaration token kind, concrete Protocol runtime
+That includes local/shared declaration token kind, Vocabulary member grammar, concrete Protocol runtime
 scalar entries, Variant declaration entry shape and duplicate-name/case-marker
 identity, `Validation.struct` entry/key grammar, and the selected Match
 handler's own-data-callable boundary.
@@ -358,18 +375,26 @@ runtime checks do not establish a `Variant.payload<User>()` object schema,
 authorization, persisted freshness, external provenance, or application
 normalization merely because a static type mentions those concepts.
 
-A phantom distinction does not create another runtime declaration identity.
-When a Selaws declaration law depends on exact runtime equality of a state,
-label, case name, or object key, the declaration uses the runtime-distinct
-scalar or property-key identity itself. A phantom-branded primitive intersection
+A static nominal distinction does not create another runtime declaration
+identity. When a Selaws declaration law depends on exact runtime equality
+of a vocabulary member, state, label, case name, or object key, the
+declaration uses the runtime-distinct scalar or property-key identity
+itself. TypeScript enum members with distinct nominal types can denote
+the same raw string or number; exact declarations require the underlying
+raw literal instead. Unique-symbol types need not correspond to runtime
+singletons; they are excluded from exact typed value/key declarations, not
+from static nominal declaration tokens. A phantom-branded primitive intersection
 such as an Identity or Evidence value still erases to the same primitive, so it
-cannot stand for a second exact Protocol member, Variant case name, or
+cannot stand for a second exact Vocabulary or Protocol member, Variant case name, or
 `Validation.struct` key. Those typed declaration boundaries reject such
 phantom-only key distinctions rather than claiming runtime equality can preserve
 them.
 
 Selaws expresses semantic guarantees for values whose runtime state is still
-described by their ordinary TypeScript type. Formation APIs centralize honest
+described by their ordinary TypeScript type. Native operations can change an
+observationally significant representation even while their generic type is
+unchanged (for example, signed zero in Set and Map keys). Re-establish affected
+facts at representation-changing boundaries. Formation APIs centralize honest
 introduction of phantom meaning. Assertions, `any`, and TypeScript's unsound mutable aliasing can break that
 relationship; Selaws does not reify erased static types at runtime. A readonly
 view is therefore trusted to describe the current backing value when it crosses

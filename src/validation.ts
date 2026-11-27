@@ -1,8 +1,9 @@
 import type { CallbackResult } from "./internal/callback.js";
 import { ownMatchHandler } from "./internal/match.js";
-import type { SingleName, SingleSymbol } from "./internal/scalar.js";
+import type { PositionArrayInput } from "./internal/position-array.js";
+import type { SingleName } from "./internal/scalar.js";
 import type { Option } from "./option.js";
-import type { Result } from "./result/core.js";
+import type { Result } from "./result/index.js";
 
 /** Non-empty ordered Validation issues. */
 export type ValidationIssues<E> = readonly [E, ...E[]];
@@ -63,15 +64,11 @@ type InvalidStructEntry<Entries extends readonly ValidationStructEntry[]> = {
     infer Key extends ValidationStructKey,
     Validation<unknown, unknown>,
   ]
-    ? Key extends string
-      ? Key extends SingleName<Key>
+    ? [Key] extends [string]
+      ? [Key] extends [SingleName<Key & string>]
         ? never
         : Index
-      : Key extends symbol
-        ? Key extends SingleSymbol<Key>
-          ? never
-          : Index
-        : Index
+      : Index
     : Index;
 }[number];
 
@@ -214,9 +211,6 @@ type ValidationStructValues<Entries extends readonly ValidationStructEntry[]> =
 
 type ValidationStructIssue<Entries extends readonly ValidationStructEntry[]> =
   ValidationIssue<StructValidation<Entries[number]>>;
-
-type StableArrayInput<Value extends readonly unknown[]> =
-  true extends IsMutableArray<Value> ? never : unknown;
 
 const isObjectLike = (value: unknown): value is object =>
   (typeof value === "object" || typeof value === "function") && value !== null;
@@ -388,7 +382,7 @@ export const unwrapOrElse = <T, E, U>(
  * collection in input order.
  */
 export const all = <const V extends readonly Validation<unknown, unknown>[]>(
-  validations: V & StableArrayInput<V>,
+  validations: V & PositionArrayInput<V>,
 ): Validation<ValidationValues<V>, ValidationIssue<V[number]>> => {
   const values: unknown[] = [];
   const issues: unknown[] = [];

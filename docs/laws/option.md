@@ -77,7 +77,9 @@ selected callback's ordinary JavaScript completion is preserved.
 `all` combines already-materialized Options. It preserves tuple position when
 every input is Some; any None produces None. Typed input arrays must be readonly so array covariance cannot change element
 meaning behind the static type before the call. Inline array literals infer
-readonly tuples; broad `readonly Option<T>[]` inputs remain valid.
+readonly tuples; broad `readonly Option<T>[]` inputs remain valid. The output
+contains only positional values. Typed inputs with additional array properties
+are rejected; those properties are not collected.
 
 ```ts
 const pair = Option.all([

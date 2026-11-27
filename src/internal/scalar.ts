@@ -9,14 +9,33 @@ export type IsUnion<T, Whole = T> = T extends Whole
     : true
   : never;
 
+// A raw literal must not carry a distinct nominal enum type. In particular,
+// separate enum members with equal runtime values can be disjoint in TypeScript.
+type Same<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2
+      ? true
+      : false
+    : false;
+
+type RawPropertyKey<Key extends PropertyKey> = Key extends string
+  ? `${Key}`
+  : Key extends number
+    ? `${Key}` extends `${infer NumberValue extends number}`
+      ? NumberValue
+      : never
+    : Key;
+
 // An empty record is assignable to broad, patterned, and branded key spaces,
 // but not to one concrete property-key identity.
-type SinglePropertyKey<Key extends PropertyKey> =
+export type SinglePropertyKey<Key extends PropertyKey> =
   true extends IsUnion<Key>
     ? never
     : Record<never, never> extends Record<Key, never>
       ? never
-      : Key;
+      : Same<Key, RawPropertyKey<Key>> extends true
+        ? Key
+        : never;
 
 type SingleToken<Key extends Token> = SinglePropertyKey<Key>;
 
@@ -39,17 +58,21 @@ export type SingleScalar<Value extends Scalar> = [Value] extends [string]
   : [Value] extends [number]
     ? SinglePropertyKey<Value & number>
     : [Value] extends [symbol]
-      ? SinglePropertyKey<Value & symbol>
+      ? never
       : [Value] extends [bigint]
         ? SingleName<`${Value & bigint}`> extends never
           ? never
           : Value
         : [Value] extends [boolean]
-          ? true extends IsUnion<Value>
-            ? never
-            : boolean extends Value
-              ? never
-              : Value
+          ? [Value] extends [true]
+            ? true extends Value
+              ? Value
+              : never
+            : [Value] extends [false]
+              ? false extends Value
+                ? Value
+                : never
+              : never
           : never;
 
 export const isString = (value: unknown): value is string => typeof value === "string";

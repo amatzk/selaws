@@ -1,6 +1,6 @@
 {
   "name": "selaws",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Independent semantic primitives for TypeScript with explicit laws.",
   "license": "MIT",
   "keywords": [
@@ -71,6 +71,11 @@
       "types": "./dist/validation.d.ts",
       "import": "./dist/validation.js",
       "default": "./dist/validation.js"
+    },
+    "./vocabulary": {
+      "types": "./dist/vocabulary.d.ts",
+      "import": "./dist/vocabulary.js",
+      "default": "./dist/vocabulary.js"
     }
   },
   "scripts": {

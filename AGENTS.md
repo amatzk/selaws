@@ -8,6 +8,7 @@ Current semantic owners:
 | --- | --- |
 | Identity | scalar domain identity and its formation |
 | Evidence | stable facts on the same scalar and their establishment |
+| Vocabulary | exact finite scalar membership and immutable enumeration |
 | Protocol | admissible labeled transitions over application-owned scalar identifiers |
 | Variant | exact closed labeled alternatives and their correlated payloads |
 | Option | explicit presence or reasonless absence |
@@ -18,7 +19,7 @@ Read `README.md`, `docs/SEMANTICS.md`, `docs/API.md`, `docs/GUIDE.md`, and the
 affected owner or shared law before changing a public contract.
 
 Match is a first-class shared elimination law across Option, Result, Validation,
-and Variant. It is not an eighth semantic owner. Its public realizations stay
+and Variant. It is not a separate semantic owner. Its public realizations stay
 on the owning surfaces: `Option.match`, `Result.match`, `Validation.match`,
 and `VariantFamily.match`.
 
@@ -26,12 +27,15 @@ and `VariantFamily.match`.
 
 - Keep each public operation at the owner whose meaning it introduces or
   transforms.
-- Local Identity, Evidence, and Variant declarations are symbol-owned by
-  default. Structural cross-package compatibility must be an explicit shared
-  contract through `identity.shared`, `evidence.shared`, or `Variant.shared`;
-  display-name coincidence is not semantic authority.
+- Identity, Evidence, and nominal Variant declarations are symbol-owned by
+  default. Named cross-package identity requires an explicit shared contract
+  through `identity.shared`, `evidence.shared`, or `Variant.shared`.
+  `Variant.structural` explicitly has no nominal family identity; ordinary
+  TypeScript structural compatibility applies. Do not confuse that mode with
+  a named shared identity or weaken nominal family guarantees.
 - Scalar formation stays with Identity or Evidence; Variant owns formation for
   its declared alternatives.
+- Vocabulary owns one exact finite scalar universe, not nominal identity or transition admissibility. Keep it independent from the other owners.
 - Protocol owns one exact finite typed relation: finite readonly declaration,
   readonly triples, and concrete scalar members. Broad relation/member types do
   not acquire exact Protocol meaning.
@@ -70,6 +74,7 @@ names belong to focused subpaths:
 ```text
 selaws/identity
 selaws/evidence
+selaws/vocabulary
 selaws/protocol
 selaws/variant
 selaws/option

@@ -2,11 +2,11 @@ import type { CallbackResult } from "./internal/callback.js";
 import { ownMatchHandler } from "./internal/match.js";
 import type { SingleName, SingleSymbol, Token } from "./internal/scalar.js";
 
-type UnitSpec = symbol & {
+export type UnitSpec = symbol & {
   readonly "~selaws.variant.case": "unit";
 };
 
-type PayloadSpec<T> = symbol & {
+export type PayloadSpec<T> = symbol & {
   readonly "~selaws.variant.case": "payload";
   readonly "~selaws.variant.payload": T;
 };
@@ -34,7 +34,7 @@ type InvalidCaseEntry<Entries extends readonly CaseEntry[]> = {
     infer Name extends string,
     infer Spec extends CaseSpec,
   ]
-    ? Name extends SingleName<Name>
+    ? [Name] extends [SingleName<Name>]
       ? [Spec] extends [UnitSpec]
         ? never
         : [Spec] extends [PayloadSpec<unknown>]
@@ -199,8 +199,10 @@ type VariantMarker<Specs extends CaseSpecs> = Readonly<{
   signature: (signature: FamilySignature<Specs>) => FamilySignature<Specs>;
 }>;
 
+type FamilyIdentity = Token | null;
+
 type FamilyBrand<
-  TokenValue extends Token,
+  TokenValue extends FamilyIdentity,
   Specs extends CaseSpecs,
 > = TokenValue extends string
   ? {
@@ -210,10 +212,10 @@ type FamilyBrand<
     ? {
         readonly [K in TokenValue]: VariantMarker<Specs>;
       }
-    : never;
+    : unknown;
 
-type UnitCase<
-  TokenValue extends Token,
+export type UnitCase<
+  TokenValue extends FamilyIdentity,
   Specs extends CaseSpecs,
   Name extends CaseName<Specs>,
 > = Readonly<{
@@ -221,8 +223,8 @@ type UnitCase<
 }> &
   FamilyBrand<TokenValue, Specs>;
 
-type PayloadCase<
-  TokenValue extends Token,
+export type PayloadCase<
+  TokenValue extends FamilyIdentity,
   Specs extends CaseSpecs,
   Name extends CaseName<Specs>,
   Payload,
@@ -246,12 +248,15 @@ type RawVariantValue<
     : never;
 
 type VariantValue<
-  TokenValue extends Token,
+  TokenValue extends FamilyIdentity,
   Specs extends CaseSpecs,
   Name extends CaseName<Specs> = CaseName<Specs>,
 > = RawVariantValue<Specs, Name> & FamilyBrand<TokenValue, Specs>;
 
-type Constructors<TokenValue extends Token, Specs extends CaseSpecs> = Readonly<{
+type Constructors<
+  TokenValue extends FamilyIdentity,
+  Specs extends CaseSpecs,
+> = Readonly<{
   [Name in CaseName<Specs>]: Specs[Name] extends UnitSpec
     ? () => UnitCase<TokenValue, Specs, Name>
     : <Value extends PayloadOf<Specs[Name]>>(
@@ -270,11 +275,15 @@ type MatchResult<
   Handlers extends Matchers<Specs>,
 > = CallbackResult<Handlers[CaseName<Specs>]>;
 
-type NoExtraHandlerKeys<Handlers, Name extends PropertyKey> =
-  Exclude<keyof Handlers, Name> extends never ? unknown : never;
+type HandlerKeys<Handlers> = Handlers extends unknown ? keyof Handlers : never;
+type ExactHandlerKeys<Handlers, Name extends PropertyKey> = [
+  Exclude<Name, keyof Handlers> | Exclude<HandlerKeys<Handlers>, Name>,
+] extends [never]
+  ? unknown
+  : never;
 
 type VariantFamilyDeclaration<
-  TokenValue extends Token,
+  TokenValue extends FamilyIdentity,
   Specs extends CaseSpecs,
 > = Readonly<{
   token: TokenValue;
@@ -292,15 +301,22 @@ type VariantFamilyDeclarationOf<Family> =
       : never
     : never;
 
-type VariantFamily<TokenValue extends Token, Specs extends CaseSpecs> = Readonly<{
+/** Named public family contract; keeps consumer declaration emit portable. */
+export interface VariantFamily<
+  TokenValue extends FamilyIdentity,
+  Specs extends CaseSpecs,
+> {
   readonly "~selaws.variant.family"?: VariantFamilyDeclaration<TokenValue, Specs>;
-  make: Constructors<TokenValue, Specs>;
+  readonly tags: [CaseName<Specs>] extends [never]
+    ? readonly []
+    : readonly [CaseName<Specs>, ...CaseName<Specs>[]];
+  readonly make: Constructors<TokenValue, Specs>;
   /** Eliminates this family under the shared Match law. */
-  match<const Handlers extends Matchers<Specs>>(
+  readonly match: <const Handlers extends Matchers<Specs>>(
     value: VariantValue<TokenValue, Specs>,
-    handlers: Handlers & NoExtraHandlerKeys<Handlers, CaseName<Specs>>,
-  ): MatchResult<Specs, Handlers>;
-}>;
+    handlers: Handlers & NoInfer<ExactHandlerKeys<Handlers, CaseName<Specs>>>,
+  ) => MatchResult<Specs, Handlers>;
+}
 
 /** Extracts the closed value union produced by one Variant family declaration. */
 export type Variant<Family> =
@@ -321,7 +337,10 @@ export const payload = <T>(): PayloadSpec<T> => payloadSpec as PayloadSpec<T>;
 
 type RuntimeKind = "unit" | "payload";
 
-const createFamily = <TokenValue extends Token, Entries extends readonly CaseEntry[]>(
+const createFamily = <
+  TokenValue extends FamilyIdentity,
+  Entries extends readonly CaseEntry[],
+>(
   token: TokenValue,
   entries: Entries,
 ): VariantFamily<TokenValue, CaseSpecsFromEntries<Entries>> => {
@@ -333,7 +352,7 @@ const createFamily = <TokenValue extends Token, Entries extends readonly CaseEnt
 
   const length = entries.length;
   const kinds = new Map<string, RuntimeKind>();
-  const constructors = Object.create(null) as Record<string, unknown>;
+  const constructors: Record<string, unknown> = {};
 
   for (let index = 0; index < length; index += 1) {
     if (!Object.hasOwn(entries, index)) {
@@ -392,11 +411,14 @@ const createFamily = <TokenValue extends Token, Entries extends readonly CaseEnt
   Object.freeze(constructors);
 
   const family: VariantFamily<TokenValue, CaseSpecsFromEntries<Entries>> = {
+    tags: Object.freeze([...kinds.keys()]) as VariantFamily<
+      TokenValue,
+      CaseSpecsFromEntries<Entries>
+    >["tags"],
     make: constructors as Constructors<TokenValue, CaseSpecsFromEntries<Entries>>,
     match<const Handlers extends Matchers<CaseSpecsFromEntries<Entries>>>(
       value: VariantValue<TokenValue, CaseSpecsFromEntries<Entries>>,
-      handlers: Handlers &
-        NoExtraHandlerKeys<Handlers, CaseName<CaseSpecsFromEntries<Entries>>>,
+      handlers: Handlers,
     ): MatchResult<CaseSpecsFromEntries<Entries>, Handlers> {
       if (
         value === null ||
@@ -477,10 +499,17 @@ export const shared = <
   return createFamily<Name, Entries>(contract, entries);
 };
 
+/** Defines a closed case vocabulary with intentional structural value compatibility. */
+export const structural = <const Entries extends readonly CaseEntry[]>(
+  entries: Entries,
+  ..._closed: ClosedCaseEntries<Entries> extends never ? [never] : []
+): VariantFamily<null, CaseSpecsFromEntries<Entries>> => createFamily(null, entries);
+
 type VariantFacade = Readonly<{
   define: typeof define;
   payload: typeof payload;
   shared: typeof shared;
+  structural: typeof structural;
   unit: typeof unit;
 }>;
 
@@ -489,6 +518,7 @@ export const Variant: VariantFacade = {
   define,
   payload,
   shared,
+  structural,
   unit,
 };
 

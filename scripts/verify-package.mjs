@@ -107,6 +107,222 @@ try {
     ),
   );
 
+  // Compile the actual first-use examples from the distributed README.
+  const readme = readFileSync(join(installedRoot, "README.md"), "utf8");
+  const readmeBlocks = [...readme.matchAll(/```ts\n([\s\S]*?)\n```/gu)].map(
+    (match) => match[1],
+  );
+  const exampleImports = [
+    ["user-id.ts", 'import { identity } from "selaws/identity";'],
+    ["readme-evidence.ts", 'import { evidence } from "selaws/evidence";'],
+    ["readme-vocabulary.ts", 'import { Vocabulary } from "selaws/vocabulary";'],
+    ["readme-protocol.ts", 'import { Protocol, type Next } from "selaws/protocol";'],
+    ["readme-variant.ts", 'import { Variant } from "selaws/variant";'],
+    [
+      "readme-result.ts",
+      'import { Result, type Result as ResultValue } from "selaws/result";',
+    ],
+  ];
+  for (const [path, prefix] of exampleImports) {
+    const examples = readmeBlocks.filter((block) => block.startsWith(prefix));
+    assert.equal(examples.length, 1, `expected one README example for ${path}`);
+    writeFileSync(join(consumer, path), `${examples[0]}\n`);
+  }
+  writeFileSync(
+    join(consumer, "tsconfig.readme.json"),
+    JSON.stringify({
+      extends: "./tsconfig.json",
+      include: exampleImports.map(([path]) => path),
+    }),
+  );
+
+  // Type checking an installed consumer without emit does not establish that its
+  // public contracts can themselves be published and consumed through .d.ts.
+  writeFileSync(
+    join(consumer, "tsconfig.emit.json"),
+    JSON.stringify({
+      extends: "./tsconfig.json",
+      compilerOptions: {
+        noEmit: false,
+        declaration: true,
+        emitDeclarationOnly: true,
+        rootDir: ".",
+        outDir: "emitted",
+      },
+      include: ["domain.ts"],
+    }),
+  );
+  writeFileSync(
+    join(consumer, "tsconfig.downstream.json"),
+    JSON.stringify({
+      extends: "./tsconfig.json",
+      include: ["downstream.ts"],
+    }),
+  );
+  writeFileSync(
+    join(consumer, "domain.ts"),
+    `import { identity } from "selaws/identity";
+import { evidence } from "selaws/evidence";
+import { Variant } from "selaws/variant";
+import { Vocabulary } from "selaws/vocabulary";
+import { Protocol } from "selaws/protocol";
+import { Result } from "selaws/result";
+import { Option } from "selaws/option";
+import { Validation } from "selaws/validation";
+
+const userKey: unique symbol = Symbol("User");
+const orderKey: unique symbol = Symbol("Order");
+const factKey: unique symbol = Symbol("NonEmpty");
+const familyKey: unique symbol = Symbol("UserEvent");
+export const User = identity.string(userKey, (s) => s.length > 0);
+export type User = identity.Value<typeof User>;
+export const Order = identity.string(orderKey);
+export type Order = identity.Value<typeof Order>;
+export const Shared = identity.shared.string("example/User@1");
+export const SharedChecked = identity.shared.number("example/Number@1", (n) => n > 0);
+export const NonEmpty = evidence.string(factKey, (s) => s.length > 0);
+export const SharedFact = evidence.shared.string("example/NonEmpty@1", (s) => s.length > 0);
+export type NonEmptyUser = evidence.Proven<typeof NonEmpty, User>;
+export const Events = Variant.define(familyKey, [
+  ["empty", Variant.unit],
+  ["loaded", Variant.payload<User>()],
+]);
+export type Event = Variant.Value<typeof Events>;
+export const Structural = Variant.structural([
+  ["empty", Variant.unit],
+  ["loaded", Variant.payload<User>()],
+]);
+export type StructuralValue = Variant.Value<typeof Structural>;
+export const structuralLoaded = (value: User) => Structural.make.loaded(value);
+export const ProtocolValue = Protocol.define([["idle", "load", "ready"]]);
+export const Status = Vocabulary.define(["open", "closed"]);
+export type Status = (typeof Status.values)[number];
+
+export const checked = (value: User) => NonEmpty(value);
+export const empty = Events.make.empty();
+export const loaded = (value: User) => Events.make.loaded(value);
+export const result = (value: User) => Result.ok(Events.make.loaded(value));
+export const optional = (value: User) => Option.some(value);
+export const validated = (value: User) => Validation.valid(value);
+export const parse = (raw: unknown) => {
+  const value = User(raw);
+  return value === undefined ? Result.err("invalid" as const) : Result.ok(value);
+};
+`,
+  );
+  writeFileSync(
+    join(consumer, "downstream.ts"),
+    `import {
+  User, Order, Events, ProtocolValue, checked, empty, loaded, result, optional,
+  validated, parse, Structural, structuralLoaded, type StructuralValue, type Event, type NonEmptyUser, Status,
+} from "./emitted/domain.js";
+import { Variant } from "selaws/variant";
+import { Result as importedResult, type Result } from "selaws/result";
+import { Option as importedOption } from "selaws/option";
+import { Vocabulary as importedVocabulary } from "selaws/vocabulary";
+import { Validation as importedValidation } from "selaws/validation";
+import { Protocol as importedProtocol } from "selaws/protocol";
+
+const user = User("u");
+if (user !== undefined) {
+  const verified: NonEmptyUser | undefined = checked(user);
+  const event: Event = loaded(user);
+  const res: Result<Variant.Case<Event, "loaded">, never> = result(user);
+  if (res.ok) {
+    const preserved: User = res.value.value;
+    void preserved;
+  }
+  const opt = optional(user);
+  if (opt.some) {
+    const preserved: User = opt.value;
+    void preserved;
+  }
+  const val = validated(user);
+  if (val.valid) {
+    const preserved: User = val.value;
+    void preserved;
+  }
+  void verified;
+  void event;
+}
+const wire: StructuralValue = { tag: "empty" };
+Structural.match(wire, { empty: () => 0, loaded: (value) => value.length });
+// @ts-expect-error structural values cannot gain a nominal family
+const wrongFamily: Event = wire;
+if (user !== undefined) {
+  const value: StructuralValue = structuralLoaded(user);
+  void value;
+}
+void wrongFamily;
+declare const status: "open" | "closed" | "other";
+if (!Status.has(status)) {
+  const remaining: "other" = status;
+  void remaining;
+}
+declare const alternativeKey: "a" | "b";
+// @ts-expect-error case names must denote one exact scalar identity
+Variant.structural([[alternativeKey, Variant.unit]]);
+// @ts-expect-error vocabulary members must denote one exact scalar identity
+importedVocabulary.define([alternativeKey]);
+// @ts-expect-error struct cannot project both alternative keys
+importedValidation.struct([[alternativeKey, importedValidation.valid(1)]]);
+declare enum EnumOne { A = "a" }
+declare enum EnumTwo { A = "a" }
+declare const brandedBoolean: true & { readonly proof: true };
+// @ts-expect-error runtime equality cannot establish a phantom boolean fact
+importedVocabulary.define([brandedBoolean]);
+// @ts-expect-error a raw scalar cannot distinguish nominal enum members
+importedVocabulary.define([EnumOne.A]);
+// @ts-expect-error a raw scalar cannot distinguish nominal enum members
+importedProtocol.define([[EnumOne.A, "go", "x"], [EnumTwo.A, "go", "y"]]);
+const runtimeKey: unique symbol = Symbol("key");
+const registeredOne: unique symbol = Symbol.for("same");
+const registeredTwo: unique symbol = Symbol.for("same");
+// @ts-expect-error exact typed membership requires raw literal identities
+importedVocabulary.define([runtimeKey]);
+// @ts-expect-error a nominal symbol type does not identify one runtime key
+importedValidation.struct([[runtimeKey, importedValidation.valid(1)]]);
+// @ts-expect-error two unique symbol types can be one runtime symbol
+importedProtocol.define([[registeredOne, "go", "x"], [registeredTwo, "go", "y"]]);
+// @ts-expect-error output arrays contain positions, not extra properties
+importedOption.all(Object.assign([importedOption.some(1)] as const, {meta: 1}));
+// @ts-expect-error output arrays contain positions, not extra properties
+importedResult.all(Object.assign([importedResult.ok(1)] as const, {meta: 1}));
+// @ts-expect-error output arrays contain positions, not extra properties
+importedValidation.all(Object.assign([importedValidation.valid(1)] as const, {meta: 1}));
+const oneCase = Variant.structural([["a", Variant.unit]]);
+declare const extraAlternatives: { a: () => number; x: () => number } | { a: () => number; y: () => number };
+// @ts-expect-error every handler alternative must have exactly the declared keys
+oneCase.match(oneCase.make.a(), extraAlternatives);
+const ObjectCase = Variant.structural([["toString", Variant.unit]]);
+const objectCase = ObjectCase.make.toString();
+// @ts-expect-error Object's implicit method is not an explicit handler key
+ObjectCase.match(objectCase, {});
+ObjectCase.match(objectCase, { toString: () => 1 });
+const normalConstructorNamespace = Variant.structural([["ready", Variant.unit]]);
+const nativeDescription: string = normalConstructorNamespace.make.toString();
+void nativeDescription;
+
+
+const emptyEvent: Event = empty;
+// @ts-expect-error the emitted family must preserve distinct scalar identities
+loaded(Order("o"));
+// @ts-expect-error raw data must not acquire declaration-owned family identity
+const forged: Event = { tag: "empty" };
+// @ts-expect-error a valid case has its declared payload
+Events.make.loaded(Order("o"));
+const next: readonly "ready"[] = ProtocolValue.targets("idle", "load");
+const parsed = parse("u");
+if (parsed.ok) {
+  const preserved: User = parsed.value;
+  void preserved;
+}
+void emptyEvent;
+void forged;
+void next;
+`,
+  );
+
   // These are compiler-regression floors, not public declaration-size limits.
   const scaleEntryCount = 2000;
   const protocolNextProbeCount = 64;
@@ -1051,19 +1267,21 @@ import { Option } from "selaws/option";
 import { Protocol } from "selaws/protocol";
 import { Variant } from "selaws/variant";
 import { Variant as VariantCopy } from "selaws-copy/variant";
+import { Vocabulary } from "selaws/vocabulary";
 import { Result } from "selaws/result";
 import { Validation } from "selaws/validation";
 
 assert.deepEqual(
   Object.keys(root).sort(),
-  ["Option", "Protocol", "Result", "Validation", "Variant", "evidence", "identity"],
+  ["Option", "Protocol", "Result", "Validation", "Variant", "Vocabulary", "evidence", "identity"],
 );
 
 const expectedFocusedSurfaces = new Map([
   ["selaws/identity", ["defineIdentity", "identity"]],
   ["selaws/evidence", ["defineFact", "evidence"]],
   ["selaws/protocol", ["Protocol", "define"]],
-  ["selaws/variant", ["Variant", "define", "payload", "shared", "unit"]],
+  ["selaws/variant", ["Variant", "define", "payload", "shared", "structural", "unit"]],
+  ["selaws/vocabulary", ["Vocabulary", "define"]],
   [
     "selaws/option",
     [
@@ -1141,7 +1359,8 @@ const expectedFacadeSurfaces = new Map([
   [identity, ["bigint", "boolean", "define", "number", "shared", "string", "symbol"]],
   [evidence, ["bigint", "boolean", "define", "number", "shared", "string", "symbol"]],
   [Protocol, ["define"]],
-  [Variant, ["define", "payload", "shared", "unit"]],
+  [Variant, ["define", "payload", "shared", "structural", "unit"]],
+  [Vocabulary, ["define"]],
   [
     Option,
     expectedFocusedSurfaces
@@ -1180,6 +1399,15 @@ assert.strictEqual(root.evidence, evidence);
 assert.strictEqual(root.Option, Option);
 assert.strictEqual(root.Protocol, Protocol);
 assert.strictEqual(root.Variant, Variant);
+assert.strictEqual(root.Vocabulary, Vocabulary);
+const vocabularyInput = ["open", "closed"];
+const vocabulary = Vocabulary.define(vocabularyInput);
+vocabularyInput[0] = "other";
+assert.deepEqual(vocabulary.values, ["open", "closed"]);
+assert.equal(vocabulary.has("open"), true);
+assert.equal(vocabulary.has("other"), false);
+assert.equal(Object.isFrozen(vocabulary.values), true);
+
 assert.equal(Object.hasOwn(Variant, "Case"), false);
 assert.strictEqual(Variant.unit, VariantCopy.unit);
 const projectionSurfaceFamily = Variant.define(Symbol("ProjectionSurface"), [
@@ -1287,11 +1515,17 @@ const runtimeProtocol = Protocol.define([
 ]);
 assert.equal(runtimeProtocol.allows("pending", "pay", "paid"), true);
 assert.equal(runtimeProtocol.allows("pending", "pay", "cancelled"), false);
+assert.deepEqual(runtimeProtocol.states, ["pending", "paid", "cancelled"]);
+assert.deepEqual(runtimeProtocol.labels, ["pay", "cancel"]);
+assert.deepEqual(runtimeProtocol.targets("pending", "pay"), ["paid"]);
+assert.equal(Object.isFrozen(runtimeProtocol.states), true);
 
 const runtimeVariant = Variant.define(Symbol("RuntimeVariant"), [
   ["empty", Variant.unit],
   ["value", Variant.payload()],
 ]);
+assert.deepEqual(runtimeVariant.tags, ["empty", "value"]);
+assert.equal(Object.isFrozen(runtimeVariant.tags), true);
 assert.deepEqual(runtimeVariant.make.empty(), { tag: "empty" });
 assert.deepEqual(runtimeVariant.make.value(1), { tag: "value", value: 1 });
 assert.equal(
@@ -1529,6 +1763,38 @@ for (const internalSpecifier of [
       run("pnpm", [`--package=typescript@${version}`, "dlx", "tsc", "-p", config]);
     }
 
+    for (const exact of ["false", "true"]) {
+      run("pnpm", [
+        `--package=typescript@${version}`,
+        "dlx",
+        "tsc",
+        "-p",
+        "tsconfig.readme.json",
+        "--exactOptionalPropertyTypes",
+        exact,
+      ]);
+      run("pnpm", [
+        `--package=typescript@${version}`,
+        "dlx",
+        "tsc",
+        "-p",
+        "tsconfig.emit.json",
+        "--exactOptionalPropertyTypes",
+        exact,
+      ]);
+      const emitted = readFileSync(join(consumer, "emitted", "domain.d.ts"), "utf8");
+      assert.doesNotMatch(emitted, /node_modules|selaws\/dist\/|selaws\/result\/core/u);
+      run("pnpm", [
+        `--package=typescript@${version}`,
+        "dlx",
+        "tsc",
+        "-p",
+        "tsconfig.downstream.json",
+        "--exactOptionalPropertyTypes",
+        exact,
+      ]);
+    }
+
     for (const owner of scaleOwners) {
       run(
         "pnpm",
@@ -1559,6 +1825,7 @@ for (const internalSpecifier of [
     "./result",
     "./validation",
     "./variant",
+    "./vocabulary",
   ]);
 
   for (const path of [
@@ -1575,6 +1842,7 @@ for (const internalSpecifier of [
     "docs/laws/result.md",
     "docs/laws/variant.md",
     "docs/laws/validation.md",
+    "docs/laws/vocabulary.md",
   ]) {
     assert.equal(
       existsSync(join(installedRoot, path)),

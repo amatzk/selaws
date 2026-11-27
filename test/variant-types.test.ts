@@ -500,3 +500,115 @@ const overloadedMatch = OverloadedCase.match(OverloadedCase.make.value(1), {
 type _OverloadedMatchResultIsConservative = Expect<
   Equal<typeof overloadedMatch, number | string>
 >;
+
+const projectionKey: unique symbol = Symbol("Projection");
+const Projection = VariantFacade.define(projectionKey, [
+  ["none", VariantFacade.unit],
+  ["some", VariantFacade.payload<number>()],
+]);
+type _projectedTags = Expect<Equal<(typeof Projection.tags)[number], "none" | "some">>;
+const emptyProjection = VariantFacade.define(projectionKey, []);
+type _emptyTags = Expect<Equal<typeof emptyProjection.tags, readonly []>>;
+// @ts-expect-error tags are readonly
+Projection.tags.push("none");
+
+const Structural = VariantFacade.structural([
+  ["empty", VariantFacade.unit],
+  ["loaded", VariantFacade.payload<number>()],
+]);
+type StructuralValue = VariantFacade.Value<typeof Structural>;
+type _structuralShape = Expect<
+  Equal<
+    StructuralValue,
+    Readonly<{ tag: "empty" }> | Readonly<{ tag: "loaded"; value: number }>
+  >
+>;
+const literal: StructuralValue = { tag: "loaded", value: 1 };
+const structuralResult = Structural.match(literal, {
+  empty: () => "none",
+  loaded: (value) => value.toFixed(),
+});
+const nominalKey: unique symbol = Symbol("Nominal");
+const Nominal = VariantFacade.define(nominalKey, [
+  ["empty", VariantFacade.unit],
+  ["loaded", VariantFacade.payload<number>()],
+]);
+// @ts-expect-error a structurally compatible value cannot acquire a local nominal family
+Nominal.match(literal, { empty: () => 0, loaded: (value) => value });
+const projected: StructuralValue = Nominal.make.loaded(1);
+// @ts-expect-error the structural family's cases are still closed and correlated
+const badStructural: StructuralValue = { tag: "loaded", value: "wrong" };
+// @ts-expect-error match is still total
+Structural.match(literal, { loaded: (value) => value });
+// @ts-expect-error duplicate structural case names are invalid
+VariantFacade.structural([
+  ["x", VariantFacade.unit],
+  ["x", VariantFacade.unit],
+]);
+void structuralResult;
+void projected;
+void badStructural;
+
+declare const alternativeName: "a" | "b";
+declare const alternativeEntry:
+  | readonly ["a", typeof unit]
+  | readonly ["b", typeof unit];
+// @ts-expect-error only one case exists at runtime, not both alternative names
+define(messageKey, [[alternativeName, unit]]);
+// @ts-expect-error the same exactness rule applies to named shared families
+shared("test/Alternative@1", [[alternativeName, unit]]);
+// @ts-expect-error structural values do not relax declaration exactness
+VariantFacade.structural([[alternativeName, unit]]);
+// @ts-expect-error one position cannot declare alternative case names
+VariantFacade.structural([alternativeEntry]);
+declare const alternativeSpec: typeof unit | ReturnType<typeof payload<number>>;
+// @ts-expect-error the runtime kind cannot be both unit and payload
+VariantFacade.structural([["same", alternativeSpec]]);
+// A union in a payload type is data, not an alternative declaration.
+const UnionPayload = VariantFacade.structural([["value", payload<string | number>()]]);
+UnionPayload.make.value(1);
+UnionPayload.make.value("x");
+
+declare enum AlternativeNameEnum {
+  A = "a",
+}
+// @ts-expect-error enum names have a static nominal distinction absent from runtime names
+VariantFacade.structural([[AlternativeNameEnum.A, unit]]);
+const Single = VariantFacade.structural([["a", unit]]);
+declare const alternateExtraHandlers:
+  | { a: () => number; extraA: () => string }
+  | { a: () => number; extraB: () => string };
+// @ts-expect-error neither handler alternative has exactly the declared keys
+Single.match(Single.make.a(), alternateExtraHandlers);
+declare const exactAlternativeHandlers: { a: () => number } | { a: () => string };
+Single.match(Single.make.a(), exactAlternativeHandlers);
+
+const ObjectNames = VariantFacade.structural([
+  ["toString", unit],
+  ["valueOf", unit],
+  ["hasOwnProperty", payload<string>()],
+]);
+// @ts-expect-error implicit Object methods are not explicit case handlers
+ObjectNames.match(ObjectNames.make.toString(), {});
+// @ts-expect-error a subset cannot eliminate the entire coproduct
+ObjectNames.match(ObjectNames.make.valueOf(), { toString: () => 1, valueOf: () => 2 });
+declare const alternativeObjectHandlers:
+  | {
+      toString: () => number;
+      valueOf: () => number;
+      hasOwnProperty: (key: string) => number;
+    }
+  | { toString: () => number; valueOf: () => number };
+// @ts-expect-error every possible handler shape must include all case names
+ObjectNames.match(ObjectNames.make.toString(), alternativeObjectHandlers);
+const constructObjectCase = ObjectNames.make.hasOwnProperty;
+const handledObjectName = ObjectNames.match(constructObjectCase("x"), {
+  toString: () => 1,
+  valueOf: () => 2,
+  hasOwnProperty: (key) => key.length,
+});
+const ordinaryString: string = VariantFacade.structural([
+  ["ready", unit],
+]).make.toString();
+void handledObjectName;
+void ordinaryString;

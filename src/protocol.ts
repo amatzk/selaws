@@ -91,17 +91,30 @@ export type Next<
   Via extends Labels<Transitions>,
 > = NextFrom<TransitionUnion<Transitions>, From, Via>;
 
-/** Runtime membership for one exact immutable labeled transition relation. */
+type Projection<T> = [T] extends [never] ? readonly [] : readonly [T, ...T[]];
+
+/** Named declaration surface of an exact finite relation. */
+export interface ProtocolRelation<Transitions extends readonly Transition[]> {
+  readonly states: Projection<States<Transitions>>;
+  readonly labels: Projection<Labels<Transitions>>;
+  readonly targets: <From extends States<Transitions>, Via extends Labels<Transitions>>(
+    from: From,
+    label: Via,
+  ) => readonly Next<Transitions, From, Via>[];
+  readonly allows: <
+    From extends States<Transitions>,
+    Via extends Labels<Transitions>,
+    To extends States<Transitions>,
+  >(
+    from: From,
+    label: Via,
+    to: To,
+  ) => boolean;
+}
+
+/** Runtime membership and projections of one exact immutable labeled transition relation. */
 export type Protocol<Transitions extends readonly Transition[]> =
-  ClosedTransitions<Transitions> extends never
-    ? never
-    : Readonly<{
-        allows<
-          From extends States<Transitions>,
-          Via extends Labels<Transitions>,
-          To extends States<Transitions>,
-        >(from: From, label: Via, to: To): boolean;
-      }>;
+  ClosedTransitions<Transitions> extends never ? never : ProtocolRelation<Transitions>;
 
 const isScalarIdentifier = (value: unknown): value is Scalar => {
   switch (typeof value) {
@@ -131,6 +144,8 @@ export const define = <const Transitions extends readonly Transition[]>(
   }
 
   const relation = new Map<State, Map<Label, Set<State>>>();
+  const states = new Set<State>();
+  const allLabels = new Set<Label>();
   const length = transitions.length;
 
   for (let index = 0; index < length; index += 1) {
@@ -179,9 +194,17 @@ export const define = <const Transitions extends readonly Transition[]>(
     }
 
     targets.add(to);
+    states.add(from);
+    states.add(to);
+    allLabels.add(label);
   }
 
   return Object.freeze({
+    states: Object.freeze([...states]),
+    labels: Object.freeze([...allLabels]),
+    targets(from: State, label: Label): readonly State[] {
+      return Object.freeze([...(relation.get(from)?.get(label) ?? [])]);
+    },
     allows<
       From extends States<Transitions>,
       Via extends Labels<Transitions>,

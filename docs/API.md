@@ -15,6 +15,7 @@ Runtime values:
 ```text
 identity
 evidence
+Vocabulary
 Protocol
 Variant
 Option
@@ -28,6 +29,7 @@ Principal types:
 Scalar
 Identity
 Evidence
+Vocabulary
 Protocol
 Variant
 
@@ -72,6 +74,13 @@ Result's explicit JavaScript control boundaries are available as
 owner-qualified facade. The same operations remain standalone exports from
 `selaws/result` for focused imports.
 
+## Named declaration surfaces
+
+Focused entries export names used by TypeScript when emitting consumer
+declarations. Those names describe existing factory and value contracts;
+they do not introduce additional formation operations. Prefer the
+owner-qualified projection types and factories in ordinary application code.
+
 ## Shared Match law
 
 Match is a first-class shared elimination law, not a public namespace or
@@ -106,6 +115,10 @@ Exports:
 ```text
 Scalar
 Identity
+LocalOpenIdentity
+LocalCheckedIdentity
+SharedOpenIdentity
+SharedCheckedIdentity
 defineIdentity
 identity
 
@@ -173,6 +186,8 @@ Exports:
 ```text
 Scalar
 Evidence
+LocalFact
+SharedFact
 defineFact
 evidence
 
@@ -213,6 +228,31 @@ type to an already compatible scalar type.
 `defineFact<T>()(token, build)` is the declaration-owned form. Its callback
 receives the private establishment function.
 
+## `selaws/vocabulary`
+
+```text
+Vocabulary
+define
+Vocabulary.define
+```
+
+```ts
+const Status = Vocabulary.define(["open", "closed"]);
+type Status = (typeof Status.values)[number];
+
+declare const input: unknown;
+if (Status.has(input)) {
+  // input: "open" | "closed"
+}
+```
+
+The definition snapshots an exact finite readonly scalar tuple, rejects
+duplicate values at runtime, and returns immutable `values` and a
+membership type guard `has` using SameValueZero. The tuple's exact positional
+types and the set's positive/negative narrowing are preserved. It adds no
+nominal identity, payload or transition semantics. See
+[the Vocabulary law](./laws/vocabulary.md).
+
 ## `selaws/protocol`
 
 Types:
@@ -225,6 +265,7 @@ States
 Labels
 Next
 Protocol
+ProtocolRelation
 ```
 
 Runtime exports:
@@ -250,7 +291,9 @@ const OrderProtocol =
 `Protocol.define` snapshots one exact finite relation of readonly
 `[from, label, to]` triples into an immutable membership relation. Typed
 declarations require a finite readonly outer tuple, readonly triples, and one
-concrete runtime scalar identity in each source/label/target position.
+raw literal string, number, bigint or boolean in each source/label/target
+position. Symbol types and nominal enum members cannot guarantee exact typed
+runtime equality.
 Phantom brands on the same primitive do not create additional Protocol
 identities. Broad-length arrays, relation unions, and broad scalar member types
 are outside the typed Protocol grammar. JavaScript callers still receive runtime shape/scalar
@@ -276,10 +319,18 @@ type AfterPay =
 
 `States` contains source and target identifiers that occur in the exact
 relation. `Labels` contains its declared labels. `Next` projects exactly the
-targets in that same relation for a source/label pair. These projections do not
-treat a broad relation type as an upper approximation.
+targets in that same relation for a source/label pair. For union-valued source
+or label types, it contains targets of at least one matching pair, not targets
+admissible for every pair. These projections do not treat a broad relation type
+as an upper approximation.
 
-### Runtime membership
+### Runtime membership and projections
+
+`protocol.states` and `protocol.labels` expose frozen, deduplicated
+relation projections. `protocol.targets(from, label)` returns a frozen
+array of admissible targets (possibly empty), with element type `Next`.
+These expose only identifiers occurring in the relation, not a separate
+state universe.
 
 ```ts
 OrderProtocol.allows(
@@ -297,10 +348,15 @@ Protocol does not store current state or perform a transition.
 
 ## `selaws/variant`
 
-Type:
+Types:
 
 ```text
 Variant
+VariantFamily
+UnitSpec
+PayloadSpec
+UnitCase
+PayloadCase
 ```
 
 Runtime exports and facade members:
@@ -308,12 +364,14 @@ Runtime exports and facade members:
 ```text
 define
 shared
+structural
 payload
 unit
 Variant
 
 Variant.define
 Variant.shared
+Variant.structural
 Variant.payload
 Variant.unit
 Variant.Value
@@ -342,6 +400,7 @@ witness is type-only and does not add runtime family properties.
 entries, snapshots that tuple, and returns an immutable family with:
 
 ```text
+family.tags
 family.make.<case>(...)
 family.match(value, handlers)
 ```
@@ -389,6 +448,10 @@ property.
 `Variant.shared` requires an explicit concrete string interoperability
 contract. Shared families remain structurally compatible across duplicate
 package copies only when the contract and exact family signature agree.
+`Variant.structural(entries)` deliberately omits nominal family identity. It
+uses the same declaration grammar, constructors, tags and Match; its value
+type is the ordinary structural tagged union. It does not establish a named
+shared contract.
 
 ## `selaws/option`
 
@@ -494,9 +557,12 @@ Operation groups:
 `ValidationIssue<V>` extracts one issue type.
 
 `Validation.all` preserves finite tuple positions. Typed input arrays must be
-readonly; broad readonly Validation arrays remain valid. `Validation.struct` accepts one
+readonly and have only positional array type information; broad readonly
+Validation arrays remain valid. `Validation.struct` accepts one
 finite readonly tuple of readonly `[key, Validation]` entries, preserves those
-string or symbol keys, and accumulates issues in entry order. Phantom brands
+raw string literal keys, and accumulates issues in entry order. Symbol types
+are not exact runtime keys. JavaScript callers may still use concrete symbols.
+Phantom brands
 do not create additional runtime property keys. Directly mutable outer or inner
 tuples, duplicate keys, broad keys, and broad-length declarations are outside
 the typed grammar. Readonly views over separately mutable aliases

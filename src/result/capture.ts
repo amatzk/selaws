@@ -1,5 +1,6 @@
 import type { NotPromiseLike } from "../internal/promise-like.js";
-import { err, ok, type Result } from "./core.js";
+import { err, ok } from "./core.js";
+import type { Result } from "./index.js";
 
 type SyncPrimitive = string | number | boolean | bigint | symbol | null | undefined;
 

@@ -11,7 +11,7 @@ Validation  Valid / Invalid
 Variant     one declared family case
 ```
 
-Match is not an eighth semantic owner. The owning carrier still defines which
+Match is not a separate semantic owner. The owning carrier still defines which
 branches exist, what each branch means, and which payload belongs to each
 branch.
 
@@ -56,6 +56,10 @@ Variant     every declared family case
 ```
 
 A narrowed Some, Ok, Valid, or Variant case does not reduce this obligation.
+Variant's handler key set must equal its declared case set for every union
+alternative. Implicit Object members such as `toString` do not count as
+explicit keys. TypeScript cannot prove own-data property provenance for all
+structural objects; the selected runtime check remains required.
 
 ## 3. Selected own-data handler
 

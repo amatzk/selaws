@@ -1,4 +1,4 @@
-import type { Result } from "./core.js";
+import type { Result } from "./index.js";
 
 /** Converts Err into an explicitly mapped thrown value and returns Ok unchanged. */
 export const orThrow = <T, E>(

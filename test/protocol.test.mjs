@@ -112,6 +112,12 @@ test("membership matches the declared relation across scalar identifier kinds", 
 
   for (const from of states) {
     for (const label of labels) {
+      const expectedTargets = new Set(
+        transitions
+          .filter(([f, l]) => sameValueZero(f, from) && sameValueZero(l, label))
+          .map(([, , to]) => to),
+      );
+      assert.deepEqual(new Set(protocol.targets(from, label)), expectedTargets);
       for (const to of states) {
         const expected = transitions.some(
           ([declaredFrom, declaredLabel, declaredTo]) =>
@@ -170,4 +176,33 @@ test("runtime JavaScript callers cannot declare aggregate identifiers", () => {
   assert.throws(() => define([[{}, "go", "next"]]), /scalar identifiers/);
   assert.throws(() => define([["current", {}, "next"]]), /scalar identifiers/);
   assert.throws(() => define([["current", "go", {}]]), /scalar identifiers/);
+});
+
+test("projections are frozen, deduplicated snapshots of the same relation", () => {
+  const entries = [
+    ["a", "go", "b"],
+    ["a", "go", "c"],
+    ["a", "go", "b"],
+    ["c", "stop", "c"],
+  ];
+  const p = define(entries);
+  entries[0][2] = "changed";
+  assert.deepEqual(p.states, ["a", "b", "c"]);
+  assert.deepEqual(p.labels, ["go", "stop"]);
+  assert.deepEqual(p.targets("a", "go"), ["b", "c"]);
+  assert.deepEqual(p.targets("b", "go"), []);
+  assert.deepEqual(p.targets("missing", "go"), []);
+  assert.throws(() => p.states.push("bad"), TypeError);
+  assert.throws(() => p.labels.pop(), TypeError);
+  assert.throws(() => p.targets("a", "go").pop(), TypeError);
+  assert.equal(p.allows("a", "go", "b"), true);
+  assert.deepEqual(define([]).states, []);
+  assert.deepEqual(define([]).labels, []);
+  const numeric = define([
+    [NaN, -0, -0],
+    [NaN, 0, 0],
+  ]);
+  assert.deepEqual(numeric.states, [NaN, 0]);
+  assert.deepEqual(numeric.labels, [0]);
+  assert.deepEqual(numeric.targets(NaN, 0), [0]);
 });

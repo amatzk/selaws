@@ -379,3 +379,68 @@ test("handler throws and async returns keep native JavaScript completion", async
   });
   assert.equal(await promise, 2);
 });
+
+test("tags project the exact case universe without exposing mutable declaration data", () => {
+  const entries = [
+    ["__proto__", Variant.unit],
+    ["write", Variant.payload()],
+  ];
+  const family = Variant.define(Symbol("Tags"), entries);
+  entries[0][0] = "changed";
+  assert.deepEqual(family.tags, ["__proto__", "write"]);
+  assert.throws(() => family.tags.pop(), TypeError);
+  assert.deepEqual(Variant.define(Symbol("Empty"), []).tags, []);
+});
+
+test("structural family explicitly accepts ordinary tagged values under the same Match law", () => {
+  const S = Variant.structural([
+    ["none", Variant.unit],
+    ["some", Variant.payload()],
+  ]);
+  assert.deepEqual(S.tags, ["none", "some"]);
+  assert.deepEqual(S.make.some(4), { tag: "some", value: 4 });
+  assert.equal(
+    S.match({ tag: "some", value: 4 }, { none: () => 0, some: (value) => value }),
+    4,
+  );
+  assert.throws(
+    () => S.match({ tag: "some" }, { none: () => 0, some: (value) => value }),
+    /own data value/,
+  );
+  assert.throws(
+    () => S.match({ tag: "unknown" }, { none: () => 0, some: (value) => value }),
+    /undeclared/,
+  );
+  assert.throws(
+    () =>
+      Variant.structural([
+        ["a", Variant.unit],
+        ["a", Variant.unit],
+      ]),
+    /unique/,
+  );
+});
+
+test("constructor namespace has ordinary Object methods but only declared own case keys", () => {
+  const Family = Variant.structural([["ready", unit]]);
+  assert.equal(Family.make.toString(), "[object Object]");
+  assert.strictEqual(Family.make.valueOf(), Family.make);
+  assert.equal(Object.hasOwn(Family.make, "toString"), false);
+  assert.deepEqual(Object.keys(Family.make), ["ready"]);
+  const Names = Variant.structural([
+    ["toString", unit],
+    ["valueOf", unit],
+    ["hasOwnProperty", payload()],
+  ]);
+  assert.deepEqual(Names.make.toString(), { tag: "toString" });
+  assert.deepEqual(Names.make.valueOf(), { tag: "valueOf" });
+  assert.equal(
+    Names.match(Reflect.get(Names.make, "hasOwnProperty")("x"), {
+      toString: () => 1,
+      valueOf: () => 2,
+      hasOwnProperty: (key) => key.length,
+    }),
+    1,
+  );
+  assert.throws(() => Names.match(Names.make.toString(), {}), /own data function/);
+});

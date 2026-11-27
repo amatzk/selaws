@@ -44,7 +44,9 @@ observer callbacks that return the unchanged carrier.
 `Result.all` inspects already-materialized inputs in order and returns the
 first Err object itself. Complete success preserves tuple positions. Typed
 input arrays must be readonly so array covariance cannot replace a Result with
-one carrying a different success or error type before the call.
+one carrying a different success or error type before the call. The output
+contains only positional values. Typed inputs with additional array properties
+are rejected; those properties are not collected.
 
 ## Match elimination
 

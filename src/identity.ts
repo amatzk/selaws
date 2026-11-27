@@ -23,12 +23,12 @@ type IdentityMarker = {
  * the declaration that owns the token and remains stable across duplicate
  * Selaws installations when the caller shares that same symbol.
  */
-export type Identity<T extends Scalar, Id extends symbol> = [Id] extends [never]
+export type Identity<T extends Scalar, Id extends symbol> = T & IdentityKey<Id>;
+
+type IdentityKey<Id extends symbol> = [Id] extends [never]
   ? never
   : [Id] extends [SingleSymbol<Id>]
-    ? T & {
-        readonly [Key in Id]: IdentityMarker;
-      }
+    ? { readonly [Key in Id]: IdentityMarker }
     : never;
 
 type Mint<T extends Scalar, Id extends symbol> = <Value extends T>(
@@ -89,25 +89,25 @@ type IdentityDeclarationOf<Domain> = IdentityDeclarationProperty extends keyof D
     : never
   : never;
 
-interface LocalOpenIdentity<T extends Scalar, Key extends symbol> {
+export interface LocalOpenIdentity<T extends Scalar, Key extends symbol> {
   readonly "~selaws.identity.declaration"?: LocalIdentityDeclaration<T, Key>;
   <Value extends T>(value: Value): Identity<Value, Key>;
   (value: unknown): Identity<T, Key> | undefined;
 }
 
-interface LocalCheckedIdentity<T extends Scalar, Key extends symbol> {
+export interface LocalCheckedIdentity<T extends Scalar, Key extends symbol> {
   readonly "~selaws.identity.declaration"?: LocalIdentityDeclaration<T, Key>;
   <Value extends T>(value: Value): Identity<Value, Key> | undefined;
   (value: unknown): Identity<T, Key> | undefined;
 }
 
-interface SharedOpenIdentity<T extends Scalar, Name extends string> {
+export interface SharedOpenIdentity<T extends Scalar, Name extends string> {
   readonly "~selaws.identity.declaration"?: SharedIdentityDeclaration<T, Name>;
   <Value extends T>(value: Value): SharedIdentity<Value, Name>;
   (value: unknown): SharedIdentity<T, Name> | undefined;
 }
 
-interface SharedCheckedIdentity<T extends Scalar, Name extends string> {
+export interface SharedCheckedIdentity<T extends Scalar, Name extends string> {
   readonly "~selaws.identity.declaration"?: SharedIdentityDeclaration<T, Name>;
   <Value extends T>(value: Value): SharedIdentity<Value, Name> | undefined;
   (value: unknown): SharedIdentity<T, Name> | undefined;

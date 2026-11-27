@@ -52,8 +52,10 @@ export type {
   Ok,
   ResultError,
   ResultValue,
-} from "./result/core.js";
+} from "./result/index.js";
 /** Root-entry Result carrier paired with the Result facade value. */
-export type Result<T, E> = import("./result/core.js").Result<T, E>;
+export type Result<T, E> = import("./result/index.js").Result<T, E>;
 /** Root-entry Result facade. */
 export const Result: typeof ResultFacade = ResultFacade;
+
+export { Vocabulary } from "./vocabulary.js";

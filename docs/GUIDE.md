@@ -84,6 +84,31 @@ Use Match when an operation conceptually handles the whole sum. Ordinary
 TypeScript narrowing remains appropriate when local control flow already owns
 one branch.
 
+### Own a finite scalar vocabulary only when needed
+
+A native union or literal tuple suffices for type-only uses. When a consumer
+also needs to recognize unknown scalar input, `Vocabulary.define` binds
+the type, immutable list and membership guard to one declaration.
+
+```ts
+const Mode = Vocabulary.define(["manual", "automatic"]);
+type Mode = (typeof Mode.values)[number];
+
+const readMode = (raw: unknown): Mode =>
+  Mode.has(raw) ? raw : "manual";
+```
+
+The fallback policy is application-owned. Use a schema validator when the
+boundary needs structured decoding, coercion, or diagnostics instead.
+
+### Reuse an existing finite declaration
+
+Use a Variant family's case names when a schema or UI consumes that exact
+case universe. Use a Protocol's state, label and target projections when
+the relation itself owns those identifiers. Do not derive a separate
+application state universe (including possible isolated states), external
+result vocabulary or business ordering from the relation.
+
 ## 2. Give scalar values domain identity
 
 Use Identity when two runtime-identical scalar values must remain distinct in
@@ -699,7 +724,7 @@ const input = Validation.struct([
 
 Scheduling belongs to Promise. Accumulation belongs to Validation.
 
-## 14. Choose local or shared declaration compatibility deliberately
+## 14. Choose declaration compatibility deliberately
 
 Identity, Evidence, and Variant default to declaration-owned symbols.
 
@@ -711,8 +736,9 @@ const UserId =
   identity.string(userIdKey);
 ```
 
-The symbol description is only diagnostic text. Two distinct symbols remain
-distinct meanings even when both were created as `Symbol("UserId")`.
+The symbol description is only diagnostic text. Distinct static symbol
+declarations retain distinct typed meanings, even with equal descriptions.
+Runtime symbol equality and repeated factory calls do not generate static identities.
 
 When independently compiled producers intentionally need structural
 compatibility, opt in with a shared contract:
@@ -724,7 +750,7 @@ const SharedUserId =
   );
 ```
 
-Variant uses the same split:
+Nominal Variant uses the same split:
 
 ```ts
 const eventKey: unique symbol =
@@ -745,7 +771,13 @@ const SharedEvent = Variant.shared(
 ```
 
 The shared string is a compatibility contract, not a display name. Use it only
-when structural interoperability is intentional.
+when named cross-package interoperability is intentional.
+
+If the application contract is already an ordinary structural tagged union,
+use `Variant.structural(entries)` to derive its tags, constructors and total
+Match from one declaration. A typed literal can be a structural Variant value
+without acquiring a nominal family identity; a structural value cannot be
+used in a nominal family solely because its visible shape matches.
 
 ## 15. Keep boundary work with the application
 

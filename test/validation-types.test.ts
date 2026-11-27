@@ -114,28 +114,19 @@ type _PrebuiltStruct = Assert<
 >;
 
 const symbolKey: unique symbol = Symbol("key");
-const symbolRecord = struct([[symbolKey, valid(1 as const)]]);
-type _SymbolStruct = Assert<
-  Equal<typeof symbolRecord, Validation<Readonly<{ [symbolKey]: 1 }>, never>>
->;
+// @ts-expect-error a unique symbol type may denote different runtime keys on separate calls
+struct([[symbolKey, valid(1 as const)]]);
 
-const uncertainKey: unique symbol = Symbol("uncertain");
 declare const uncertainName: Validation<string, "name">;
-declare const uncertainSymbol: Validation<number, "symbol">;
+declare const uncertainNumber: Validation<number, "number">;
 const uncertainRecord = struct([
   ["name", uncertainName],
-  [uncertainKey, uncertainSymbol],
+  ["number", uncertainNumber],
 ]);
 type _UncertainStruct = Assert<
   Equal<
     typeof uncertainRecord,
-    Validation<
-      Readonly<{
-        name: string;
-        [uncertainKey]: number;
-      }>,
-      "name" | "symbol"
-    >
+    Validation<Readonly<{ name: string; number: number }>, "name" | "number">
   >
 >;
 
@@ -214,8 +205,8 @@ struct([
   ["within", valid(9)],
 ]);
 
-const crossBoundarySymbol: unique symbol = Symbol("CrossBoundary");
-// @ts-expect-error symbol-key duplicates spanning the chunk boundary remain rejected
+const crossBoundarySymbol = "cross-boundary";
+// @ts-expect-error key duplicates spanning the chunk boundary remain rejected
 struct([
   ["cross0", valid(0)],
   ["cross1", valid(1)],
@@ -230,8 +221,8 @@ struct([
   [crossBoundarySymbol, valid(10)],
 ]);
 
-const firstTailSymbol: unique symbol = Symbol("FirstTail");
-// @ts-expect-error the final tail compares symbol keys against the first chunk
+const firstTailSymbol = "first-tail";
+// @ts-expect-error the final tail compares keys against the first chunk
 struct([
   [firstTailSymbol, valid(0)],
   ["tail1", valid(1)],
@@ -246,7 +237,7 @@ struct([
   [firstTailSymbol, valid(10)],
 ]);
 
-const multiChunkSymbol: unique symbol = Symbol("MultiChunk");
+const multiChunkSymbol = "multi-chunk";
 // @ts-expect-error Seen must survive more than one full recursive chunk
 struct([
   [multiChunkSymbol, valid(0)],
@@ -346,3 +337,46 @@ type _RootFacade = Assert<Equal<typeof rootValid, RootValidationType<number, nev
 void literalValid;
 void literalInvalid;
 void heterogeneousInvalid;
+
+declare const alternativeStringKey: "a" | "b";
+declare const alternativeSymbolA: unique symbol;
+declare const alternativeSymbolB: unique symbol;
+declare const alternativeSymbolKey:
+  | typeof alternativeSymbolA
+  | typeof alternativeSymbolB;
+declare const mixedAlternativeKey: "a" | typeof alternativeSymbolA;
+// @ts-expect-error one key cannot supply both properties
+struct([[alternativeStringKey, valid(1)]]);
+// @ts-expect-error same rule for symbol keys
+struct([[alternativeSymbolKey, valid(1)]]);
+// @ts-expect-error same rule across scalar key kinds
+struct([[mixedAlternativeKey, valid(1)]]);
+declare const alternativePair:
+  | readonly ["a", Validation<number, never>]
+  | readonly ["b", Validation<number, never>];
+// @ts-expect-error alternative entry names cannot form one exact product
+struct([alternativePair]);
+// Conditional data is distinct from conditional keys.
+declare const conditionalValue: Validation<number, "invalid">;
+const conditionalProduct = struct([["fixed", conditionalValue]]);
+if (conditionalProduct.valid) {
+  const value: number = conditionalProduct.value.fixed;
+  void value;
+}
+
+declare enum ValidationKeyEnum {
+  A = "a",
+}
+// @ts-expect-error the named enum type is not the raw runtime property key
+struct([[ValidationKeyEnum.A, valid(1)]]);
+
+const decoratedCollectorInput = Object.assign([valid(1)] as const, {
+  meta: valid("not a position"),
+});
+// @ts-expect-error collectors do not project arbitrary array properties
+all(decoratedCollectorInput);
+declare const extraArrayProperty: readonly ReturnType<typeof valid<number>>[] & {
+  readonly metadata?: string;
+};
+// @ts-expect-error optional metadata is not a positional output
+all(extraArrayProperty);

@@ -34,15 +34,14 @@ The outer declaration must be one finite readonly tuple. Every transition must
 be one readonly length-three tuple, and each `from`, `label`, and `to`
 member must denote one concrete scalar identity.
 
-Accepted member identities include runtime-distinct literal strings, numbers,
-bigints, booleans, enum members, and unique symbols.
+Typed member identities are raw literal strings, numbers, bigints and booleans.
+Nominal enum members and symbol types are not exact runtime singleton types.
 
 A phantom brand on a primitive does not create another runtime scalar identity.
 For example, two differently branded values whose runtime carrier is the same
 string would compare equal in Protocol's SameValueZero relation. Such
 phantom-only distinctions are therefore outside the exact Protocol declaration
-grammar; use runtime-distinct literals or symbols for state and label
-identifiers.
+grammar; use runtime-distinct raw literals for typed state and label identifiers.
 
 Broad or alternative scalar spaces do not denote one concrete relation member:
 
@@ -89,7 +88,11 @@ Next<Transitions, From, Label>
 Protocol.define(Transitions).allows(...)
 ```
 
-`Next` projects exactly the targets declared for one source/label pair.
+`Next` projects exactly the targets declared for one source/label pair. If
+`From` or `Label` is a union, the projected target union is existential: a
+target occurs for at least one pair in those inputs. It does not establish
+admissibility for every pair. An application that requires every possible
+outcome to be admissible must check that universal condition separately.
 
 ```ts
 type AfterPay =
@@ -105,6 +108,27 @@ type AfterPay =
 claim target-narrowing through a type predicate; a caller may pass union-valued
 state/label/target variables whose correlations TypeScript cannot preserve
 through a boolean call.
+
+Exact typed identifiers require agreement between static type equality and
+runtime SameValueZero. Distinct unique-symbol types can denote one registered
+symbol, and repeated evaluation of one declaration can produce distinct symbols
+of the same static type. Symbol types cannot justify exact typed projections.
+JavaScript callers still may supply concrete symbol values.
+
+### Runtime projections
+
+The immutable relation also exposes frozen arrays:
+
+- `states`: every distinct source or target identifier in the relation.
+- `labels`: every distinct label in the relation.
+- `targets(from, label)`: every distinct admissible target of that pair.
+
+Membership in these projections follows the same SameValueZero relation as
+`allows`. A pair with no edge has an empty target array. Projections expose
+identifiers in first-occurrence order; order does not carry domain meaning.
+They do not declare isolated states or select a transition. The state and
+label arrays are non-empty in typed non-empty relations; target arrays may
+always be empty, and their element type is `Next`.
 
 ## 4. Label preservation
 
@@ -133,7 +157,9 @@ runtime.
 ## 6. Set semantics and equality
 
 Duplicate triples do not change admissibility. Declaration order is not
-semantic.
+semantic. Equal state/label projections alone do not determine equal edge
+relations. Neither reachability nor reflexive/transitive closure is implied
+by a single-step admissibility relation.
 
 Runtime state and label identity follows JavaScript SameValueZero, matching
 `Map` and `Set` key semantics. JavaScript runtime declarations can therefore
